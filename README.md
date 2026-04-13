@@ -16,10 +16,6 @@ Embedding this logic directly into the relay would make it complex, slow, and di
   - Apply immediate admission decisions based on whitelist, blacklist, and reputation signals.
   - Support integration with external scoring providers like Vertex.
 
-- **Evaluate published applications**
-  - Inspect events representing Android apps and related metadata.
-  - Incorporate automated validation sources (e.g., GitHub-based checks).
-
 - **Support asynchronous threat detection**
   - Run slower, deeper analysis such as malware detection and behavioral signals after ingestion.
   - Continuously improve detection using new data sources and heuristics.

@@ -11,7 +11,7 @@ import (
 var ctx = context.Background()
 
 func TestPolicyRoundrip(t *testing.T) {
-	db, err := New(":memory:")
+	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestPolicyRoundrip(t *testing.T) {
 }
 
 func TestIsAllowed(t *testing.T) {
-	db, err := New(":memory:")
+	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestIsAllowed(t *testing.T) {
 }
 
 func TestIsBlocked(t *testing.T) {
-	db, err := New(":memory:")
+	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestIsBlocked(t *testing.T) {
 }
 
 func TestSetAndRemovePolicy(t *testing.T) {
-	db, err := New(":memory:")
+	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
 	}

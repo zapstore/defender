@@ -16,10 +16,10 @@ type DB struct {
 }
 
 // New creates a new store with the given path.
-func New(path string) (DB, error) {
-	db, err := sql.Open("sqlite3", path)
+func New(c Config) (DB, error) {
+	db, err := sql.Open("sqlite3", c.Path)
 	if err != nil {
-		return DB{}, fmt.Errorf("failed to connect to sqlite3 at %s: %w", path, err)
+		return DB{}, fmt.Errorf("failed to connect to sqlite3 at %s: %w", c.Path, err)
 	}
 	if _, err := db.Exec(schema); err != nil {
 		return DB{}, fmt.Errorf("failed to apply base schema: %w", err)

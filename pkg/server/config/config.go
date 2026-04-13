@@ -14,16 +14,19 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/zapstore/defender/pkg/server/db"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
 
 type Config struct {
+	DB     db.Config
 	Vertex vertex.Config
 }
 
 // New creates a new [Config] with default parameters.
 func New() Config {
 	return Config{
+		DB:     db.NewConfig(),
 		Vertex: vertex.NewConfig(),
 	}
 }
@@ -39,14 +42,18 @@ func Load() (Config, error) {
 }
 
 func (c Config) Validate() error {
+	if err := c.DB.Validate(); err != nil {
+		return fmt.Errorf("db: %w", err)
+	}
 	if err := c.Vertex.Validate(); err != nil {
-		return err
+		return fmt.Errorf("vertex: %w", err)
 	}
 	return nil
 }
 
 func (c Config) String() string {
 	var b strings.Builder
+	b.WriteString(c.DB.String())
 	b.WriteString(c.Vertex.String())
 	return b.String()
 }

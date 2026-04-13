@@ -1,12 +1,4 @@
-// The package config is responsible for loading package specific configs from the
-// environment variables, and validating them.
-//
-// Packages requiring configs should expose:
-// - A Config struct with the package specific config parameters.
-// - A NewConfig() function to create a new Config with default parameters.
-// - A Validate() method to validate the config.
-// - A String() method to return a string representation of the config.
-package config
+package server
 
 import (
 	"fmt"
@@ -19,32 +11,32 @@ import (
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
 
-type T struct {
+type Config struct {
 	DB     db.Config
 	Vertex vertex.Config
-	HTTP   HTTP
+	HTTP   HTTPConfig
 }
 
-// New creates a new config with default parameters.
-func New() T {
-	return T{
+// NewConfig creates a new config with default parameters.
+func NewConfig() Config {
+	return Config{
 		DB:     db.NewConfig(),
 		Vertex: vertex.NewConfig(),
-		HTTP:   NewHTTP(),
+		HTTP:   NewHTTPConfig(),
 	}
 }
 
-// Load creates a new config with default parameters, that get overwritten by env variables when specified.
+// LoadConfig creates a new config with default parameters, that get overwritten by env variables when specified.
 // To validate the config, call the Validate method.
-func Load() (T, error) {
-	config := New()
+func LoadConfig() (Config, error) {
+	config := NewConfig()
 	if err := env.Parse(&config); err != nil {
-		return T{}, fmt.Errorf("failed to load config: %w", err)
+		return Config{}, fmt.Errorf("failed to load config: %w", err)
 	}
 	return config, nil
 }
 
-func (c T) Validate() error {
+func (c Config) Validate() error {
 	if err := c.DB.Validate(); err != nil {
 		return fmt.Errorf("db: %w", err)
 	}
@@ -57,7 +49,7 @@ func (c T) Validate() error {
 	return nil
 }
 
-func (c T) String() string {
+func (c Config) String() string {
 	var b strings.Builder
 	b.WriteString(c.DB.String())
 	b.WriteString(c.Vertex.String())
@@ -66,7 +58,7 @@ func (c T) String() string {
 }
 
 // HTTP holds the configuration for the HTTP server.
-type HTTP struct {
+type HTTPConfig struct {
 	Addr            string        `env:"HTTP_ADDR"`
 	ReadTimeout     time.Duration `env:"HTTP_READ_TIMEOUT"`
 	WriteTimeout    time.Duration `env:"HTTP_WRITE_TIMEOUT"`
@@ -74,8 +66,8 @@ type HTTP struct {
 	ShutdownTimeout time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT"`
 }
 
-func NewHTTP() HTTP {
-	return HTTP{
+func NewHTTPConfig() HTTPConfig {
+	return HTTPConfig{
 		Addr:            "localhost:8080",
 		ReadTimeout:     5 * time.Second,
 		WriteTimeout:    10 * time.Second,
@@ -84,7 +76,7 @@ func NewHTTP() HTTP {
 	}
 }
 
-func (c HTTP) Validate() error {
+func (c HTTPConfig) Validate() error {
 	if c.Addr == "" {
 		return fmt.Errorf("addr is required")
 	}
@@ -103,7 +95,7 @@ func (c HTTP) Validate() error {
 	return nil
 }
 
-func (c HTTP) String() string {
+func (c HTTPConfig) String() string {
 	return fmt.Sprintf("HTTP:\n"+
 		"\tAddr: %s\n"+
 		"\tRead Timeout: %s\n"+

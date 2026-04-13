@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/zapstore/defender/pkg/server"
-	"github.com/zapstore/defender/pkg/server/config"
 	"github.com/zapstore/defender/pkg/server/db"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
@@ -21,7 +20,7 @@ func main() {
 	slog.Info("-------------------defender startup-------------------")
 	defer slog.Info("-------------------defender shutdown-------------------")
 
-	config, err := config.Load()
+	config, err := server.LoadConfig()
 	if err != nil {
 		panic(err)
 	}

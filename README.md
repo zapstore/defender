@@ -10,6 +10,12 @@ As the relay evolved, basic whitelist and blacklist checks became insufficient. 
 
 Embedding this logic directly into the relay would make it complex, slow, and difficult to extend. Defender exists to separate these concerns, allowing trust and safety rules to evolve independently from the core relay while supporting both immediate decisions and deferred corrective actions.
 
+## Where to draw the line
+
+The relay owns everything it can answer locally, cheaply, and without knowing anything about the outside world.
+
+The defender owns everything that requires external knowledge, accumulated history, or expensive computation about an author or their content.
+
 ## Goals
 
 - **Control access to the relay**

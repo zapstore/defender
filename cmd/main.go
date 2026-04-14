@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/zapstore/defender/pkg/server"
-	"github.com/zapstore/defender/pkg/server/db"
+	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
 
@@ -29,7 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := db.New(config.DB)
+	db, err := sqlite.New(config.DB)
 	if err != nil {
 		panic(err)
 	}

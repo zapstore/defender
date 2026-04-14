@@ -7,12 +7,12 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/zapstore/defender/pkg/server/db"
+	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
 
 type Config struct {
-	DB     db.Config
+	DB     sqlite.Config
 	Vertex vertex.Config
 	HTTP   HTTPConfig
 }
@@ -20,7 +20,7 @@ type Config struct {
 // NewConfig creates a new config with default parameters.
 func NewConfig() Config {
 	return Config{
-		DB:     db.NewConfig(),
+		DB:     sqlite.NewConfig(),
 		Vertex: vertex.NewConfig(),
 		HTTP:   NewHTTPConfig(),
 	}

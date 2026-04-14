@@ -3,7 +3,7 @@ package sqlite
 import "fmt"
 
 type Config struct {
-	Path string
+	Path string `env:"DATABASE_PATH"`
 }
 
 func NewConfig() Config {

@@ -18,8 +18,12 @@ type CheckResponse struct {
 	Reason   string          `json:"reason"`
 }
 
+const maxEventBytes = 1024 * 1024 // 1 MB
+
 func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxEventBytes)
 	var event nostr.Event
+
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		slog.Error("checkHandler: invalid event JSON", "err", err)
 		writeJSON(w, http.StatusBadRequest, CheckResponse{

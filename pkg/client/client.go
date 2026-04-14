@@ -64,19 +64,23 @@ func (c Client) Check(event *nostr.Event) (server.CheckResponse, error) {
 	}
 	defer resp.Body.Close()
 
-	var response server.CheckResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	var check server.CheckResponse
+	if err := json.NewDecoder(resp.Body).Decode(&check); err != nil {
 		return server.CheckResponse{}, fmt.Errorf("failed to decode response: %w", err)
 	}
-	return response, nil
+	return check, nil
 }
 
 func normalizeURL(u string) (string, error) {
 	if len(u) == 0 {
 		return "", fmt.Errorf("url is empty")
 	}
-	if _, err := url.Parse(u); err != nil {
+	parsed, err := url.Parse(u)
+	if err != nil {
 		return "", fmt.Errorf("url is invalid: %w", err)
+	}
+	if parsed.Scheme == "" {
+		return "", fmt.Errorf("url must have a scheme")
 	}
 	return strings.TrimSuffix(u, "/"), nil
 }

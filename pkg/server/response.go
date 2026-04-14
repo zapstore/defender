@@ -7,21 +7,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 )
 
-type Decision string
-
-const (
-	Accept Decision = "accept"
-	Reject Decision = "reject"
-)
-
 type CheckResponse struct {
-	Decision Decision `json:"decision"`
-	Reason   string   `json:"reason"`
+	Decision sqlite.Decision `json:"decision"`
+	Reason   string          `json:"reason"`
 }
 
 func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +23,7 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
 		slog.Error("checkHandler: invalid event JSON", "err", err)
 		writeJSON(w, http.StatusBadRequest, CheckResponse{
-			Decision: Reject,
+			Decision: sqlite.DecisionReject,
 			Reason:   fmt.Sprintf("invalid event payload: %s", err),
 		})
 		return
@@ -38,7 +32,7 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 	if !event.CheckID() {
 		slog.Error("checkHandler: invalid event id", "event", event)
 		writeJSON(w, http.StatusBadRequest, CheckResponse{
-			Decision: Reject,
+			Decision: sqlite.DecisionReject,
 			Reason:   "invalid event id",
 		})
 		return
@@ -47,7 +41,7 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 	if ok, err := event.CheckSignature(); err != nil || !ok {
 		slog.Error("checkHandler: invalid event signature", "event", event)
 		writeJSON(w, http.StatusBadRequest, CheckResponse{
-			Decision: Reject,
+			Decision: sqlite.DecisionReject,
 			Reason:   "invalid event signature",
 		})
 		return
@@ -57,13 +51,25 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("checkHandler: failed to check event", "err", err)
 		writeJSON(w, http.StatusInternalServerError, CheckResponse{
-			Decision: Reject,
+			Decision: sqlite.DecisionReject,
 			Reason:   "internal error while checking event",
 		})
 		return
 	}
 
 	writeJSON(w, http.StatusOK, response)
+
+	decision := sqlite.EventDecision{
+		CheckedAt: time.Now(),
+		EventID:   event.ID,
+		Pubkey:    event.PubKey,
+		Decision:  response.Decision,
+		Reason:    response.Reason,
+	}
+
+	if err := s.db.RecordDecision(context.Background(), decision); err != nil {
+		slog.Error("checkHandler: failed to record decision", "err", err)
+	}
 }
 
 // checkEvent evaluates a valid event and returns the appropriate CheckResponse.
@@ -79,12 +85,12 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (CheckResponse, e
 		switch policy.Status {
 		case sqlite.StatusBlocked:
 			return CheckResponse{
-				Decision: Reject,
+				Decision: sqlite.DecisionReject,
 				Reason:   fmt.Sprintf("pubkey is blocked: %s", policy.Reason),
 			}, nil
 		case sqlite.StatusAllowed:
 			return CheckResponse{
-				Decision: Accept,
+				Decision: sqlite.DecisionAccept,
 				Reason:   fmt.Sprintf("pubkey is explicitly allowed: %s", policy.Reason),
 			}, nil
 		}
@@ -98,21 +104,13 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (CheckResponse, e
 
 	if !allowed {
 		return CheckResponse{
-			Decision: Reject,
+			Decision: sqlite.DecisionReject,
 			Reason:   "pubkey does not meet the minimum reputation threshold",
 		}, nil
 	}
 
 	return CheckResponse{
-		Decision: Accept,
+		Decision: sqlite.DecisionAccept,
 		Reason:   "pubkey meets the minimum reputation threshold",
 	}, nil
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		slog.Error("writeJSON: failed to encode response", "err", err)
-	}
 }

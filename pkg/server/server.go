@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -65,5 +66,13 @@ func (s *T) Start(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(context.Background(), s.config.HTTP.ShutdownTimeout)
 		defer cancel()
 		return server.Shutdown(ctx)
+	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("writeJSON: failed to encode response", "err", err)
 	}
 }

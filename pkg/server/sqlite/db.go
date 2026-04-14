@@ -1,3 +1,4 @@
+// Package sqlite provides a sqlite-backed store for the defender server.
 package sqlite
 
 import (

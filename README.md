@@ -2,7 +2,7 @@
 
 ## Overview
 
-Defender is a policy and security service for the Zapstore Nostr relay that controls access to published app events and evaluates their trustworthiness. It acts as a decision layer between event ingestion and persistence, combining fast admission checks with asynchronous analysis to detect spam, scams, and malicious content (WIP).
+Defender is a policy and security service for the Zapstore Nostr relay. It acts as a decision layer between event ingestion and persistence, combining fast admission checks with asynchronous analysis to detect spam, scams, and malicious content (WIP).
 
 ## Why it exists
 
@@ -36,3 +36,32 @@ The defender owns everything that requires external knowledge, accumulated histo
 - Expensive checks are handled asynchronously and should not block ingestion.
 - All decisions must be logged for auditability.
 - The system should evolve without requiring changes to the relay core.
+
+## Running
+
+Make a `.env` file, customize it to your needs and fill in the required variables.
+You can take a look at the `.env.example` for the list of supported variables with their
+default values.
+
+
+```bash
+go run ./cmd
+```
+
+The server listens on `localhost:8080` by default.
+
+## API
+
+### `POST /v1/events/check`
+
+Evaluates a Nostr event and returns an admission decision.
+
+**Request body**: a JSON-encoded Nostr event:
+**Response**:
+
+```jsonc
+{
+  "decision": "accept" | "reject",
+  "reason": "human readable explanation"
+}
+```

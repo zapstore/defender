@@ -1,23 +1,69 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
 
-// Setup registers all routes and returns a configured *http.Server ready to be started.
-func Setup(c Config, db sqlite.DB, vertex vertex.Filter) *http.Server {
-	mux := http.NewServeMux()
+// T is the main server type. It implements http.Handler and can be started with Start.
+type T struct {
+	db     sqlite.DB
+	vertex vertex.Filter
+	config Config
+}
 
-	// TODO: register routes
+// New returns a new server instance with the given configuration and dependencies.
+func New(c Config, db sqlite.DB, filter vertex.Filter) *T {
+	return &T{
+		db:     db,
+		vertex: filter,
+		config: c,
+	}
+}
 
-	return &http.Server{
-		Addr:         c.HTTP.Addr,
-		Handler:      mux,
-		ReadTimeout:  c.HTTP.ReadTimeout,
-		WriteTimeout: c.HTTP.WriteTimeout,
-		IdleTimeout:  c.HTTP.IdleTimeout,
+// ServeHTTP implements http.Handler.
+func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/events/check":
+		s.HandleCheck(w, r)
+
+	default:
+		http.Error(w, "Unsupported request", http.StatusNotFound)
+	}
+}
+
+// Start runs the HTTP server and blocks until the context is cancelled, then performs a graceful shutdown.
+// It returns a non-nil error if the HTTP server fails.
+func (s *T) Start(ctx context.Context) error {
+	server := &http.Server{
+		Addr:         s.config.HTTP.Addr,
+		Handler:      s,
+		ReadTimeout:  s.config.HTTP.ReadTimeout,
+		WriteTimeout: s.config.HTTP.WriteTimeout,
+		IdleTimeout:  s.config.HTTP.IdleTimeout,
+	}
+
+	exit := make(chan error, 1)
+	go func() {
+		slog.Info("server listening", "addr", s.config.HTTP.Addr)
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			exit <- err
+		}
+	}()
+
+	select {
+	case err := <-exit:
+		return err
+
+	case <-ctx.Done():
+		slog.Info("server shutting down")
+		ctx, cancel := context.WithTimeout(context.Background(), s.config.HTTP.ShutdownTimeout)
+		defer cancel()
+		return server.Shutdown(ctx)
 	}
 }

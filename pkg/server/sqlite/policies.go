@@ -66,7 +66,7 @@ func (db DB) IsBlocked(ctx context.Context, pubkey string) (bool, error) {
 }
 
 // PolicyOf returns the [PubkeyPolicy] for a pubkey.
-// It returns [ErrPubkeyPolicyNotFound] if no policy exists for the pubkey.
+// It returns [ErrPolicyNotFound] if no policy exists for the pubkey.
 func (db DB) PolicyOf(ctx context.Context, pubkey string) (PubkeyPolicy, error) {
 	var p PubkeyPolicy
 	var createdAt int64

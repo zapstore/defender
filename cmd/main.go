@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"net/http"
 	"os/signal"
 	"syscall"
 
@@ -36,29 +34,9 @@ func main() {
 	defer db.Close()
 
 	vertex := vertex.NewFilter(config.Vertex)
-	server := server.Setup(config, db, vertex)
+	server := server.New(config, db, vertex)
 
-	slog.Info("starting http server", "addr", config.HTTP.Addr)
-
-	exitErr := make(chan error, 1)
-	go func() {
-		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			exitErr <- err
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		slog.Info("signal received, shutting down the server")
-
-		ctx, cancel := context.WithTimeout(context.Background(), config.HTTP.ShutdownTimeout)
-		defer cancel()
-
-		if err := server.Shutdown(ctx); err != nil {
-			panic(err)
-		}
-
-	case err := <-exitErr:
+	if err := server.Start(ctx); err != nil {
 		panic(err)
 	}
 }

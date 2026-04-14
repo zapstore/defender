@@ -1,0 +1,223 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip19"
+	"github.com/zapstore/defender/pkg/server/sqlite"
+)
+
+const usage = `defender-cli - manage pubkey policies for the defender
+
+Usage:
+  defender-cli <command> <pubkey>
+
+Database:
+Uses defender.db (local db), or the path specified by the DATABASE_PATH environment variable.
+
+Commands:
+  allow   <pubkey> <reason>   Set pubkey status to "allowed"
+  block   <pubkey> <reason>   Set pubkey status to "blocked"
+  remove  <pubkey>            Delete the policy for a pubkey
+  get     <pubkey>            Print the current policy for a pubkey
+
+Examples:
+  defender-cli allow  abc123 "trusted developer"
+  defender-cli block  abc123 "spam"
+  defender-cli remove abc123
+  defender-cli get    abc123
+`
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Print(usage)
+		return
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	dbPath := "defender.db"
+	if v := os.Getenv("DATABASE_PATH"); v != "" {
+		dbPath = v
+	}
+
+	db, err := sqlite.New(sqlite.Config{Path: dbPath})
+	if err != nil {
+		fmt.Printf("failed to open database at path %s: %v\n", dbPath, err)
+		return
+	}
+	defer db.Close()
+
+	cmd := os.Args[1]
+	switch cmd {
+	case "allow":
+		runAllow(ctx, db)
+
+	case "block":
+		runBlock(ctx, db)
+
+	case "remove":
+		runRemove(ctx, db)
+
+	case "get":
+		runGet(ctx, db)
+
+	default:
+		fmt.Printf("unknown command: %s\n", cmd)
+		fmt.Println("available commands: allow, block, remove, get")
+	}
+}
+
+func runAllow(ctx context.Context, db sqlite.DB) {
+	if len(os.Args) < 4 {
+		fmt.Println("invalid command: allow <pubkey> <reason>")
+		return
+	}
+
+	pubkey, err := parsePubkey(os.Args[2])
+	if err != nil {
+		fmt.Println("invalid command:", err)
+		return
+	}
+
+	reason := strings.Join(os.Args[3:], " ")
+	if reason == "" {
+		fmt.Println("invalid command: reason required")
+		return
+	}
+
+	policy := sqlite.PubkeyPolicy{
+		Pubkey:    pubkey,
+		Status:    sqlite.StatusAllowed,
+		CreatedAt: time.Now().UTC(),
+		AddedBy:   "cli",
+		Reason:    reason,
+	}
+
+	if err := db.SetPolicy(ctx, policy); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("successfully allowed pubkey")
+	fmt.Printf("\tpubkey: %q\n", pubkey)
+	fmt.Printf("\treason: %q\n", reason)
+}
+
+func runBlock(ctx context.Context, db sqlite.DB) {
+	if len(os.Args) < 4 {
+		fmt.Println("invalid command: block <pubkey> <reason>")
+		return
+	}
+
+	pubkey, err := parsePubkey(os.Args[2])
+	if err != nil {
+		fmt.Println("invalid command:", err)
+		return
+	}
+
+	reason := strings.Join(os.Args[3:], " ")
+	if reason == "" {
+		fmt.Println("invalid command: reason required")
+		return
+	}
+
+	policy := sqlite.PubkeyPolicy{
+		Pubkey:    pubkey,
+		Status:    sqlite.StatusBlocked,
+		CreatedAt: time.Now().UTC(),
+		AddedBy:   "cli",
+		Reason:    reason,
+	}
+
+	if err := db.SetPolicy(ctx, policy); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("successfully blocked pubkey")
+	fmt.Printf("\tpubkey: %q\n", pubkey)
+	fmt.Printf("\treason: %q\n", reason)
+}
+
+func runRemove(ctx context.Context, db sqlite.DB) {
+	if len(os.Args) < 3 {
+		fmt.Println("invalid command: remove <pubkey>")
+		return
+	}
+
+	pubkey, err := parsePubkey(os.Args[2])
+	if err != nil {
+		fmt.Println("invalid command:", err)
+		return
+	}
+
+	deleted, err := db.RemovePolicy(ctx, pubkey)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	if deleted {
+		fmt.Println("successfully removed pubkey")
+		fmt.Printf("\tpubkey: %q\n", pubkey)
+	} else {
+		fmt.Println("pubkey not found")
+	}
+}
+
+func runGet(ctx context.Context, db sqlite.DB) {
+	if len(os.Args) < 3 {
+		fmt.Println("invalid command: get <pubkey>")
+		return
+	}
+
+	pubkey, err := parsePubkey(os.Args[2])
+	if err != nil {
+		fmt.Println("invalid command:", err)
+		return
+	}
+
+	policy, err := db.PolicyOf(ctx, pubkey)
+	if errors.Is(err, sqlite.ErrPolicyNotFound) {
+		fmt.Println("pubkey not found")
+		return
+	}
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("policy of pubkey")
+	fmt.Printf("\tpubkey: %q\n", policy.Pubkey)
+	fmt.Printf("\tstatus: %q\n", policy.Status)
+	fmt.Printf("\tcreated at: %v\n", policy.CreatedAt.Unix())
+	fmt.Printf("\tadded by: %q\n", policy.AddedBy)
+	fmt.Printf("\treason: %q\n", policy.Reason)
+}
+
+func parsePubkey(input string) (string, error) {
+	if input == "" {
+		return "", fmt.Errorf("pubkey cannot be empty")
+	}
+	if strings.HasPrefix(input, "npub1") {
+		_, v, err := nip19.Decode(input)
+		if err != nil {
+			return "", fmt.Errorf("invalid npub: %w", err)
+		}
+		input = v.(string)
+	}
+	if !nostr.IsValidPublicKey(input) {
+		return "", fmt.Errorf("invalid pubkey: %s", input)
+	}
+	return input, nil
+}

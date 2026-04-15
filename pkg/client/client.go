@@ -132,6 +132,28 @@ func (c T) SetPolicy(ctx context.Context, policy models.PubkeyPolicy) error {
 	return nil
 }
 
+// DeletePolicy calls the server "DELETE /v1/pubkeys/:pubkey" endpoint.
+func (c T) DeletePolicy(ctx context.Context, pubkey string) error {
+	endpoint := c.url + "/v1/pubkeys/" + pubkey
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete pubkey policy: %w", err)
+	}
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete pubkey policy: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
+	}
+	return nil
+}
+
 func normalizeURL(u string) (string, error) {
 	if len(u) == 0 {
 		return "", fmt.Errorf("url is empty")

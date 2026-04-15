@@ -113,3 +113,31 @@ func TestSetPolicy(t *testing.T) {
 		t.Fatalf("expected pubkey %s to be in the list of all pubkeys", pip)
 	}
 }
+
+func TestDeletePolicy(t *testing.T) {
+	client, err := client.Default(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := client.DeletePolicy(ctx, pip); err != nil {
+		t.Fatal(err)
+	}
+
+	all, err := client.Pubkeys(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := false
+	for _, p := range all {
+		if p.Pubkey == pip {
+			found = true
+			break
+		}
+	}
+
+	if found {
+		t.Fatalf("expected pubkey %s to be deleted from the list of all pubkeys", pip)
+	}
+}

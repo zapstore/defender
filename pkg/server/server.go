@@ -40,6 +40,9 @@ func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/v1/pubkeys/"):
 		s.HandlePutPubkey(w, r)
 
+	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/v1/pubkeys/"):
+		s.HandleDeletePubkey(w, r)
+
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
 	}

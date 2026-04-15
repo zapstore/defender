@@ -119,6 +119,25 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResp
 	}, nil
 }
 
+func (s *T) HandlePubkeys(w http.ResponseWriter, r *http.Request) {
+	status := models.PubkeyStatus(r.URL.Query().Get("status"))
+	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
+		http.Error(w, `invalid status filter: must be "allowed" or "blocked"`, http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	policies, err := s.db.Policies(ctx, status)
+	if err != nil {
+		slog.Error("HandlePubkeys: failed to fetch policies", "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, policies)
+}
+
 func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
 	pubkey := strings.TrimPrefix(r.URL.Path, "/v1/pubkeys/")
 	var policy models.PubkeyPolicy
@@ -148,21 +167,21 @@ func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *T) HandlePubkeys(w http.ResponseWriter, r *http.Request) {
-	status := models.PubkeyStatus(r.URL.Query().Get("status"))
-	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
-		http.Error(w, `invalid status filter: must be "allowed" or "blocked"`, http.StatusBadRequest)
+func (s *T) HandleDeletePubkey(w http.ResponseWriter, r *http.Request) {
+	pubkey := strings.TrimPrefix(r.URL.Path, "/v1/pubkeys/")
+	if pubkey == "" || !nostr.IsValidPublicKey(pubkey) {
+		http.Error(w, "invalid pubkey", http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 	defer cancel()
 
-	policies, err := s.db.Policies(ctx, status)
-	if err != nil {
-		slog.Error("HandlePubkeys: failed to fetch policies", "err", err)
+	if _, err := s.db.RemovePolicy(ctx, pubkey); err != nil {
+		slog.Error("HandleDeletePubkey: failed to delete policy", "pubkey", pubkey, "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, http.StatusOK, policies)
+
+	w.WriteHeader(http.StatusNoContent)
 }

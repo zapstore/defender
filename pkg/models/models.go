@@ -20,9 +20,6 @@ type CheckResponse struct {
 	Reason   string        `json:"reason"`
 }
 
-// PubkeyResponse represents the response to a /v1/pubkeys request.
-type PubkeyResponse []PubkeyPolicy
-
 // PubkeyStatus represents the status of a pubkey, either "allowed" or "blocked".
 type PubkeyStatus string
 

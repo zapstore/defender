@@ -33,6 +33,9 @@ func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/events/check":
 		s.HandleCheck(w, r)
 
+	case r.Method == http.MethodGet && r.URL.Path == "/v1/pubkeys":
+		s.HandlePubkeys(w, r)
+
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
 	}

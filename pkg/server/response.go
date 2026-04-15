@@ -47,7 +47,10 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := s.checkEvent(r.Context(), event)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	response, err := s.checkEvent(ctx, event)
 	if err != nil {
 		slog.Error("checkHandler: failed to check event", "err", err)
 		writeJSON(w, http.StatusInternalServerError, models.CheckResponse{
@@ -56,7 +59,6 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
 	writeJSON(w, http.StatusOK, response)
 
 	decision := sqlite.EventDecision{
@@ -67,6 +69,7 @@ func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
 		Reason:    response.Reason,
 	}
 
+	// use a background context because we want to record the decision, even if the client doesn't need it anymore.
 	if err := s.db.RecordDecision(context.Background(), decision); err != nil {
 		slog.Error("checkHandler: failed to record decision", "err", err)
 	}
@@ -113,4 +116,24 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResp
 		Decision: models.DecisionAccept,
 		Reason:   "pubkey meets the minimum reputation threshold",
 	}, nil
+}
+
+func (s *T) HandlePubkeys(w http.ResponseWriter, r *http.Request) {
+	status := models.PubkeyStatus(r.URL.Query().Get("status"))
+	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
+		http.Error(w, "invalid status filter: must be allowed or blocked", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	policies, err := s.db.Policies(ctx, status)
+	if err != nil {
+		slog.Error("HandlePubkeys: failed to fetch policies", "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, policies)
 }

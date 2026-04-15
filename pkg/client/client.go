@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -47,7 +48,7 @@ func Default(url string) (T, error) {
 }
 
 // Check sends an event to the defender server and returns the server's response.
-func (c T) Check(event *nostr.Event) (models.CheckResponse, error) {
+func (c T) Check(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
 	b, err := json.Marshal(event)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
@@ -58,7 +59,13 @@ func (c T) Check(event *nostr.Event) (models.CheckResponse, error) {
 		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
 	}
 
-	resp, err := c.http.Post(endpoint, "application/json", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(b))
+	if err != nil {
+		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
 	}

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/zapstore/defender/pkg/client"
 	"github.com/zapstore/defender/pkg/models"
 )
+
+var ctx = context.Background()
 
 var testEvent = &nostr.Event{
 	Kind:      1,
@@ -32,7 +35,7 @@ func TestE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.Check(testEvent)
+	res, err := client.Check(ctx, testEvent)
 	if err != nil {
 		t.Fatal(err)
 	}

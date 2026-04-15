@@ -119,7 +119,7 @@ func TestIsChecks(t *testing.T) {
 	}
 }
 
-func TestSetAndRemovePolicy(t *testing.T) {
+func TestSetAndDeletePolicy(t *testing.T) {
 	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
@@ -139,7 +139,7 @@ func TestSetAndRemovePolicy(t *testing.T) {
 	}
 
 	// First removal: the row exists, should report deleted=true.
-	deleted, err := db.RemovePolicy(ctx, policy.Pubkey)
+	deleted, err := db.DeletePolicy(ctx, policy.Pubkey)
 	if err != nil {
 		t.Fatalf("RemovePolicy (first): %v", err)
 	}
@@ -154,7 +154,7 @@ func TestSetAndRemovePolicy(t *testing.T) {
 	}
 
 	// Second removal: nothing to delete, should report deleted=false.
-	deleted, err = db.RemovePolicy(ctx, policy.Pubkey)
+	deleted, err = db.DeletePolicy(ctx, policy.Pubkey)
 	if err != nil {
 		t.Fatalf("RemovePolicy (second): %v", err)
 	}

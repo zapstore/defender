@@ -28,12 +28,12 @@ func New(c Config, db sqlite.DB, filter vertex.Filter) *T {
 		config: c,
 	}
 
-	s.mux.HandleFunc("GET /v1/pubkeys", s.HandleListPubkeys)
-	s.mux.HandleFunc("GET /v1/pubkeys/{pubkey}", s.HandleGetPubkey)
-	s.mux.HandleFunc("PUT /v1/pubkeys/{pubkey}", s.HandlePutPubkey)
-	s.mux.HandleFunc("DELETE /v1/pubkeys/{pubkey}", s.HandleDeletePubkey)
+	s.mux.HandleFunc("GET /v1/policies", s.ListPolicies)
+	s.mux.HandleFunc("GET /v1/policies/{pubkey}", s.GetPolicy)
+	s.mux.HandleFunc("PUT /v1/policies/{pubkey}", s.SetPolicy)
+	s.mux.HandleFunc("DELETE /v1/policies/{pubkey}", s.DeletePolicy)
 
-	s.mux.HandleFunc("POST /v1/events/check", s.HandleCheck)
+	s.mux.HandleFunc("POST /v1/events/check", s.CheckEvent)
 	return s
 }
 

@@ -82,7 +82,7 @@ func (c T) CheckEvent(ctx context.Context, event *nostr.Event) (models.CheckResp
 
 // ListPolicies calls the server "GET /v1/policies" endpoint. If the status is not empty, it filters the results by status.
 func (c T) ListPolicies(ctx context.Context, status models.PolicyStatus) ([]models.Policy, error) {
-	endpoint := c.url + "/v1/pubkeys"
+	endpoint := c.url + "/v1/policies"
 	if status != "" {
 		endpoint += "?status=" + string(status)
 	}
@@ -110,9 +110,9 @@ func (c T) ListPolicies(ctx context.Context, status models.PolicyStatus) ([]mode
 	return pubkeys, nil
 }
 
-// GetPolicy calls the server "GET /v1/pubkeys/:pubkey" endpoint.
+// GetPolicy calls the server "GET /v1/policies/:pubkey" endpoint.
 func (c T) GetPolicy(ctx context.Context, pubkey string) (models.Policy, error) {
-	endpoint := c.url + "/v1/pubkeys/" + pubkey
+	endpoint := c.url + "/v1/policies/" + pubkey
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return models.Policy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
@@ -139,9 +139,9 @@ func (c T) GetPolicy(ctx context.Context, pubkey string) (models.Policy, error) 
 	return policy, nil
 }
 
-// SetPolicy calls the server "PUT /v1/pubkeys/:pubkey" endpoint.
+// SetPolicy calls the server "PUT /v1/policies/:pubkey" endpoint.
 func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
-	endpoint := c.url + "/v1/pubkeys/" + policy.Pubkey
+	endpoint := c.url + "/v1/policies/" + policy.Pubkey
 	body, err := json.Marshal(policy)
 	if err != nil {
 		return fmt.Errorf("failed to marshal policy: %w", err)
@@ -166,9 +166,9 @@ func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
 	return nil
 }
 
-// DeletePolicy calls the server "DELETE /v1/pubkeys/:pubkey" endpoint.
+// DeletePolicy calls the server "DELETE /v1/policies/:pubkey" endpoint.
 func (c T) DeletePolicy(ctx context.Context, pubkey string) error {
-	endpoint := c.url + "/v1/pubkeys/" + pubkey
+	endpoint := c.url + "/v1/policies/" + pubkey
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {

@@ -79,9 +79,9 @@ func (db DB) Policies(ctx context.Context, status models.PolicyStatus) ([]models
 	return policies, nil
 }
 
-// RemovePolicy deletes the [models.Policy] for a pubkey if it exists.
+// DeletePolicy deletes the [models.Policy] for a pubkey if it exists.
 // It returns true if the policy was deleted (i.e. it existed before), false otherwise.
-func (db DB) RemovePolicy(ctx context.Context, pubkey string) (bool, error) {
+func (db DB) DeletePolicy(ctx context.Context, pubkey string) (bool, error) {
 	res, err := db.conn.ExecContext(ctx, `DELETE FROM pubkey_policies WHERE pubkey = ?`, pubkey)
 	if err != nil {
 		return false, err

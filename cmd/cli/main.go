@@ -167,7 +167,7 @@ func runRemove(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	deleted, err := db.RemovePolicy(ctx, pubkey)
+	deleted, err := db.DeletePolicy(ctx, pubkey)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -17,7 +16,7 @@ import (
 
 const maxEventBytes = 1024 * 1024 // 1 MB
 
-func (s *T) HandleCheck(w http.ResponseWriter, r *http.Request) {
+func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxEventBytes)
 	var event nostr.Event
 
@@ -119,7 +118,7 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResp
 	}, nil
 }
 
-func (s *T) HandleListPubkeys(w http.ResponseWriter, r *http.Request) {
+func (s *T) ListPolicies(w http.ResponseWriter, r *http.Request) {
 	status := models.PolicyStatus(r.URL.Query().Get("status"))
 	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
 		http.Error(w, `invalid status filter: must be "allowed" or "blocked"`, http.StatusBadRequest)
@@ -131,14 +130,14 @@ func (s *T) HandleListPubkeys(w http.ResponseWriter, r *http.Request) {
 
 	policies, err := s.db.Policies(ctx, status)
 	if err != nil {
-		slog.Error("HandleListPubkeys: failed to fetch policies", "err", err)
+		slog.Error("ListPolicies failed", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, http.StatusOK, policies)
 }
 
-func (s *T) HandleGetPubkey(w http.ResponseWriter, r *http.Request) {
+func (s *T) GetPolicy(w http.ResponseWriter, r *http.Request) {
 	pubkey := r.PathValue("pubkey")
 	if pubkey == "" {
 		http.Error(w, "missing pubkey", http.StatusBadRequest)
@@ -158,15 +157,15 @@ func (s *T) HandleGetPubkey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		slog.Error("HandleGetPubkeys: failed to fetch policy", "err", err)
+		slog.Error("GetPolicy failed", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, http.StatusOK, policy)
 }
 
-func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
-	pubkey := strings.TrimPrefix(r.URL.Path, "/v1/pubkeys/")
+func (s *T) SetPolicy(w http.ResponseWriter, r *http.Request) {
+	pubkey := r.PathValue("pubkey")
 	var policy models.Policy
 	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
 		http.Error(w, fmt.Sprintf("invalid request body: %s", err), http.StatusBadRequest)
@@ -186,7 +185,7 @@ func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := s.db.SetPolicy(ctx, policy); err != nil {
-		slog.Error("HandlePutPubkey: failed to set policy", "pubkey", pubkey, "err", err)
+		slog.Error("SetPolicy failed", "pubkey", pubkey, "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -194,8 +193,8 @@ func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *T) HandleDeletePubkey(w http.ResponseWriter, r *http.Request) {
-	pubkey := strings.TrimPrefix(r.URL.Path, "/v1/pubkeys/")
+func (s *T) DeletePolicy(w http.ResponseWriter, r *http.Request) {
+	pubkey := r.PathValue("pubkey")
 	if pubkey == "" || !nostr.IsValidPublicKey(pubkey) {
 		http.Error(w, "invalid pubkey", http.StatusBadRequest)
 		return
@@ -204,8 +203,8 @@ func (s *T) HandleDeletePubkey(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 	defer cancel()
 
-	if _, err := s.db.RemovePolicy(ctx, pubkey); err != nil {
-		slog.Error("HandleDeletePubkey: failed to delete policy", "pubkey", pubkey, "err", err)
+	if _, err := s.db.DeletePolicy(ctx, pubkey); err != nil {
+		slog.Error("DeletePolicy failed", "pubkey", pubkey, "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

@@ -56,7 +56,20 @@ The server listens on `localhost:8080` by default.
 
 Evaluates a Nostr event and returns an admission decision.
 
-**Request body**: a JSON-encoded Nostr event:
+**Request body** — a JSON-encoded Nostr event:
+
+```jsonc
+{
+  "id": "...",
+  "pubkey": "...",
+  "created_at": 1700000000,
+  "kind": 1,
+  "tags": [],
+  "content": "...",
+  "sig": "..."
+}
+```
+
 **Response**:
 
 ```jsonc
@@ -65,3 +78,53 @@ Evaluates a Nostr event and returns an admission decision.
   "reason": "human readable explanation"
 }
 ```
+
+### `GET /v1/policies`
+
+Returns all pubkey policies. Accepts an optional `?status=allowed|blocked` query parameter to filter results.
+
+**Response**:
+
+```jsonc
+[
+  {
+    "pubkey": "...",
+    "status": "allowed" | "blocked",
+    "reason": "...",
+    "added_by": "...",
+    "created_at": 1700000000
+  }
+]
+```
+
+---
+
+### `GET /v1/policies/{pubkey}`
+
+Returns the policy for a specific pubkey.
+
+**Response**: a single policy object as above. Returns `404` if no policy exists for the pubkey.
+
+---
+
+### `PUT /v1/policies/{pubkey}`
+
+Creates or updates the policy for a pubkey.
+
+**Request body**:
+
+```jsonc
+{
+  "status": "allowed" | "blocked",
+  "reason": "...",
+  "added_by": "..."
+}
+```
+
+**Response**: `204 No Content` on success.
+
+---
+
+### `DELETE /v1/policies/{pubkey}`
+
+Removes the policy for a pubkey. Returns `204 No Content` regardless of whether the policy existed.

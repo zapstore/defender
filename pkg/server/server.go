@@ -6,14 +6,14 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
 
-// T is the main server type. It implements http.Handler and can be started with Start.
+// T is the main server type. It can be started with Start.
 type T struct {
+	mux    *http.ServeMux
 	db     sqlite.DB
 	vertex vertex.Filter
 	config Config
@@ -21,31 +21,20 @@ type T struct {
 
 // New returns a new server instance with the given configuration and dependencies.
 func New(c Config, db sqlite.DB, filter vertex.Filter) *T {
-	return &T{
+	s := &T{
+		mux:    http.NewServeMux(),
 		db:     db,
 		vertex: filter,
 		config: c,
 	}
-}
 
-// ServeHTTP implements http.Handler.
-func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/v1/events/check":
-		s.HandleCheck(w, r)
+	s.mux.HandleFunc("GET /v1/pubkeys", s.HandleListPubkeys)
+	s.mux.HandleFunc("GET /v1/pubkeys/{pubkey}", s.HandleGetPubkey)
+	s.mux.HandleFunc("PUT /v1/pubkeys/{pubkey}", s.HandlePutPubkey)
+	s.mux.HandleFunc("DELETE /v1/pubkeys/{pubkey}", s.HandleDeletePubkey)
 
-	case r.Method == http.MethodGet && r.URL.Path == "/v1/pubkeys":
-		s.HandlePubkeys(w, r)
-
-	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/v1/pubkeys/"):
-		s.HandlePutPubkey(w, r)
-
-	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/v1/pubkeys/"):
-		s.HandleDeletePubkey(w, r)
-
-	default:
-		http.Error(w, "not found", http.StatusNotFound)
-	}
+	s.mux.HandleFunc("POST /v1/events/check", s.HandleCheck)
+	return s
 }
 
 // Start runs the HTTP server and blocks until the context is cancelled, then performs a graceful shutdown.
@@ -53,7 +42,7 @@ func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *T) Start(ctx context.Context) error {
 	server := &http.Server{
 		Addr:         s.config.HTTP.Addr,
-		Handler:      s,
+		Handler:      s.mux,
 		ReadTimeout:  s.config.HTTP.ReadTimeout,
 		WriteTimeout: s.config.HTTP.WriteTimeout,
 		IdleTimeout:  s.config.HTTP.IdleTimeout,

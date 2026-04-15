@@ -105,6 +105,32 @@ func (c T) Pubkeys(ctx context.Context, status models.PubkeyStatus) ([]models.Pu
 	return pubkeys, nil
 }
 
+// GetPolicy calls the server "GET /v1/pubkeys/:pubkey" endpoint.
+func (c T) GetPolicy(ctx context.Context, pubkey string) (models.PubkeyPolicy, error) {
+	endpoint := c.url + "/v1/pubkeys/" + pubkey
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return models.PubkeyPolicy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
+	}
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return models.PubkeyPolicy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return models.PubkeyPolicy{}, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
+	}
+
+	var policy models.PubkeyPolicy
+	if err := json.NewDecoder(res.Body).Decode(&policy); err != nil {
+		return models.PubkeyPolicy{}, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return policy, nil
+}
+
 // SetPolicy calls the server "PUT /v1/pubkeys/:pubkey" endpoint.
 func (c T) SetPolicy(ctx context.Context, policy models.PubkeyPolicy) error {
 	endpoint := c.url + "/v1/pubkeys/" + policy.Pubkey

@@ -79,7 +79,7 @@ func TestPubkeys(t *testing.T) {
 	}
 }
 
-func TestSetPolicy(t *testing.T) {
+func TestSetGetPolicy(t *testing.T) {
 	client, err := client.Default(addr)
 	if err != nil {
 		t.Fatal(err)
@@ -96,22 +96,23 @@ func TestSetPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all, err := client.Pubkeys(ctx, "")
+	got, err := client.GetPolicy(ctx, policy.Pubkey)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	found := false
-	for _, p := range all {
-		if p.Pubkey == pip {
-			found = true
-			break
-		}
+	if got.Pubkey != policy.Pubkey {
+		t.Fatalf("expected pubkey %s, got %s", policy.Pubkey, got.Pubkey)
 	}
-
-	if !found {
-		t.Fatalf("expected pubkey %s to be in the list of all pubkeys", pip)
+	if got.Status != policy.Status {
+		t.Fatalf("expected status %s, got %s", policy.Status, got.Status)
 	}
+	if got.Reason != policy.Reason {
+		t.Fatalf("expected reason %s, got %s", policy.Reason, got.Reason)
+	}
+	if got.AddedBy != policy.AddedBy {
+		t.Fatalf("expected added_by %s, got %s", policy.AddedBy, got.AddedBy)
+	}
+	// CreatedAt is set by the server, so we can't compare it directly
 }
 
 func TestDeletePolicy(t *testing.T) {

@@ -50,6 +50,35 @@ func (db DB) PolicyOf(ctx context.Context, pubkey string) (models.PubkeyPolicy, 
 	return p, nil
 }
 
+// Policies returns all [models.PubkeyPolicy] entries.
+// If status is non-empty, only entries with that status are returned.
+func (db DB) Policies(ctx context.Context, status models.PubkeyStatus) ([]models.PubkeyPolicy, error) {
+	query := `SELECT pubkey, status, created_at, added_by, reason FROM pubkey_policies `
+	var args []any
+	if status != "" {
+		query += `WHERE status = ?`
+		args = append(args, status)
+	}
+
+	rows, err := db.conn.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var policies []models.PubkeyPolicy
+	for rows.Next() {
+		var p models.PubkeyPolicy
+		var createdAt int64
+		if err := rows.Scan(&p.Pubkey, &p.Status, &createdAt, &p.AddedBy, &p.Reason); err != nil {
+			return nil, err
+		}
+		p.CreatedAt = time.Unix(createdAt, 0)
+		policies = append(policies, p)
+	}
+	return policies, nil
+}
+
 // RemovePolicy deletes the [models.PubkeyPolicy] for a pubkey if it exists.
 // It returns true if the policy was deleted (i.e. it existed before), false otherwise.
 func (db DB) RemovePolicy(ctx context.Context, pubkey string) (bool, error) {
@@ -59,45 +88,6 @@ func (db DB) RemovePolicy(ctx context.Context, pubkey string) (bool, error) {
 	}
 	rowsAffected, err := res.RowsAffected()
 	return rowsAffected > 0, err
-}
-
-// PubkeysAllowed returns a list of pubkeys that have an explicit "allowed" status.
-func (db DB) PubkeysAllowed(ctx context.Context) ([]string, error) {
-	pubkeys, err := db.pubkeysStatus(ctx, models.StatusAllowed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query for the allowed pubkeys: %w", err)
-	}
-	return pubkeys, nil
-}
-
-// PubkeysBlocked returns a list of pubkeys that have an explicit "blocked" status.
-func (db DB) PubkeysBlocked(ctx context.Context) ([]string, error) {
-	pubkeys, err := db.pubkeysStatus(ctx, models.StatusBlocked)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query for the blocked pubkeys: %w", err)
-	}
-	return pubkeys, nil
-}
-
-func (db DB) pubkeysStatus(ctx context.Context, status models.PubkeyStatus) ([]string, error) {
-	var pubkeys []string
-	rows, err := db.conn.QueryContext(ctx, `SELECT pubkey FROM pubkey_policies WHERE status = ?`, status)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var pubkey string
-		if err := rows.Scan(&pubkey); err != nil {
-			return nil, err
-		}
-		pubkeys = append(pubkeys, pubkey)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return pubkeys, nil
 }
 
 // IsAllowed reports whether the pubkey has an explicit "allowed" status.

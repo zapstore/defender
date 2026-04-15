@@ -49,7 +49,7 @@ func TestSetReadPolicy(t *testing.T) {
 	}
 }
 
-func TestLists(t *testing.T) {
+func TestPolicies(t *testing.T) {
 	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
@@ -63,24 +63,24 @@ func TestLists(t *testing.T) {
 		t.Fatalf("SetPolicy: %v", err)
 	}
 
-	allowed, err := db.PubkeysAllowed(ctx)
+	all, err := db.Policies(ctx, "")
+	if err != nil {
+		t.Fatalf("Policies: %v", err)
+	}
+
+	expected := []models.PubkeyPolicy{policyAllowed, policyBlocked}
+	if !reflect.DeepEqual(all, expected) {
+		t.Fatalf("expected 2 policies, got %d", len(all))
+	}
+
+	allowed, err := db.Policies(ctx, models.StatusAllowed)
 	if err != nil {
 		t.Fatalf("PubkeysAllowed: %v", err)
 	}
 
-	expected := []string{policyAllowed.Pubkey}
+	expected = []models.PubkeyPolicy{policyAllowed}
 	if !reflect.DeepEqual(allowed, expected) {
 		t.Fatalf("expected allowed: %v, got %v", expected, allowed)
-	}
-
-	blocked, err := db.PubkeysBlocked(ctx)
-	if err != nil {
-		t.Fatalf("PubkeysBlocked: %v", err)
-	}
-
-	expected = []string{policyBlocked.Pubkey}
-	if !reflect.DeepEqual(blocked, expected) {
-		t.Fatalf("expected blocked: %v, got %v", expected, blocked)
 	}
 }
 

@@ -8,38 +8,81 @@ import (
 	"time"
 )
 
-var ctx = context.Background()
+var (
+	ctx           = context.Background()
+	policyAllowed = PubkeyPolicy{
+		Pubkey:    "aaaaaa",
+		Status:    StatusAllowed,
+		CreatedAt: time.Unix(time.Now().Unix(), 0),
+		AddedBy:   "cli",
+		Reason:    "trusted developer",
+	}
+	policyBlocked = PubkeyPolicy{
+		Pubkey:    "bbbbbb",
+		Status:    StatusBlocked,
+		CreatedAt: time.Unix(time.Now().Unix(), 0),
+		AddedBy:   "system",
+		Reason:    "spam",
+	}
+)
 
-func TestPolicyRoundrip(t *testing.T) {
+func TestSetReadPolicy(t *testing.T) {
 	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
 	}
 	defer db.Close()
 
-	policy := PubkeyPolicy{
-		Pubkey:    "abc123",
-		Status:    StatusAllowed,
-		CreatedAt: time.Unix(time.Now().Unix(), 0), // truncate to seconds to match DB precision
-		AddedBy:   "cli",
-		Reason:    "trusted developer",
-	}
-
-	if err := db.SetPolicy(ctx, policy); err != nil {
+	if err := db.SetPolicy(ctx, policyAllowed); err != nil {
 		t.Fatalf("SetPolicy: %v", err)
 	}
 
-	got, err := db.PolicyOf(ctx, policy.Pubkey)
+	got, err := db.PolicyOf(ctx, policyAllowed.Pubkey)
 	if err != nil {
 		t.Fatalf("PolicyOf: %v", err)
 	}
 
-	if !reflect.DeepEqual(policy, got) {
-		t.Errorf("Policy mismatch: got %v, want %v", got, policy)
+	if !reflect.DeepEqual(policyAllowed, got) {
+		t.Errorf("Policy mismatch: got %v, want %v", got, policyAllowed)
 	}
 }
 
-func TestIsAllowed(t *testing.T) {
+func TestLists(t *testing.T) {
+	db, err := New(Config{Path: ":memory:"})
+	if err != nil {
+		t.Fatalf("failed to create test db: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.SetPolicy(ctx, policyAllowed); err != nil {
+		t.Fatalf("SetPolicy: %v", err)
+	}
+	if err := db.SetPolicy(ctx, policyBlocked); err != nil {
+		t.Fatalf("SetPolicy: %v", err)
+	}
+
+	allowed, err := db.PubkeysAllowed(ctx)
+	if err != nil {
+		t.Fatalf("PubkeysAllowed: %v", err)
+	}
+
+	expected := []string{policyAllowed.Pubkey}
+	if !reflect.DeepEqual(allowed, expected) {
+		t.Fatalf("expected allowed: %v, got %v", expected, allowed)
+	}
+
+	blocked, err := db.PubkeysBlocked(ctx)
+	if err != nil {
+		t.Fatalf("PubkeysBlocked: %v", err)
+	}
+
+	expected = []string{policyBlocked.Pubkey}
+	if !reflect.DeepEqual(blocked, expected) {
+		t.Fatalf("expected blocked: %v, got %v", expected, blocked)
+	}
+}
+
+func TestIsChecks(t *testing.T) {
 	db, err := New(Config{Path: ":memory:"})
 	if err != nil {
 		t.Fatalf("failed to create test db: %v", err)
@@ -71,42 +114,6 @@ func TestIsAllowed(t *testing.T) {
 	}
 	if blocked {
 		t.Error("IsBlocked: got true, want false")
-	}
-}
-
-func TestIsBlocked(t *testing.T) {
-	db, err := New(Config{Path: ":memory:"})
-	if err != nil {
-		t.Fatalf("failed to create test db: %v", err)
-	}
-	defer db.Close()
-
-	policy := PubkeyPolicy{
-		Pubkey:    "def456",
-		Status:    StatusBlocked,
-		CreatedAt: time.Now(),
-		AddedBy:   "system",
-		Reason:    "spam",
-	}
-
-	if err := db.SetPolicy(ctx, policy); err != nil {
-		t.Fatalf("SetPolicy: %v", err)
-	}
-
-	blocked, err := db.IsBlocked(ctx, policy.Pubkey)
-	if err != nil {
-		t.Fatalf("IsBlocked: %v", err)
-	}
-	if !blocked {
-		t.Error("IsBlocked: got false, want true")
-	}
-
-	allowed, err := db.IsAllowed(ctx, policy.Pubkey)
-	if err != nil {
-		t.Fatalf("IsAllowed: %v", err)
-	}
-	if allowed {
-		t.Error("IsAllowed: got true, want false")
 	}
 }
 

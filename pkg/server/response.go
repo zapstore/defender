@@ -120,7 +120,7 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResp
 }
 
 func (s *T) HandleListPubkeys(w http.ResponseWriter, r *http.Request) {
-	status := models.PubkeyStatus(r.URL.Query().Get("status"))
+	status := models.PolicyStatus(r.URL.Query().Get("status"))
 	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
 		http.Error(w, `invalid status filter: must be "allowed" or "blocked"`, http.StatusBadRequest)
 		return
@@ -163,7 +163,7 @@ func (s *T) HandleGetPubkey(w http.ResponseWriter, r *http.Request) {
 
 func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
 	pubkey := strings.TrimPrefix(r.URL.Path, "/v1/pubkeys/")
-	var policy models.PubkeyPolicy
+	var policy models.Policy
 	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
 		http.Error(w, fmt.Sprintf("invalid request body: %s", err), http.StatusBadRequest)
 		return

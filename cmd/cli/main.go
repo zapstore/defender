@@ -101,7 +101,7 @@ func runAllow(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	policy := models.PubkeyPolicy{
+	policy := models.Policy{
 		Pubkey:    pubkey,
 		Status:    models.StatusAllowed,
 		CreatedAt: time.Now().UTC(),
@@ -137,7 +137,7 @@ func runBlock(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	policy := models.PubkeyPolicy{
+	policy := models.Policy{
 		Pubkey:    pubkey,
 		Status:    models.StatusBlocked,
 		CreatedAt: time.Now().UTC(),
@@ -211,9 +211,9 @@ func runList(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	var status models.PubkeyStatus
+	var status models.PolicyStatus
 	if len(os.Args) == 3 {
-		status = models.PubkeyStatus(os.Args[2])
+		status = models.PolicyStatus(os.Args[2])
 	}
 
 	policies, err := db.Policies(ctx, status)

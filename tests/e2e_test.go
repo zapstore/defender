@@ -85,7 +85,7 @@ func TestSetGetPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	policy := models.PubkeyPolicy{
+	policy := models.Policy{
 		Pubkey:  pip,
 		Status:  models.StatusAllowed,
 		Reason:  "because I am building it",

@@ -12,14 +12,14 @@ import (
 
 var (
 	ctx           = context.Background()
-	policyAllowed = models.PubkeyPolicy{
+	policyAllowed = models.Policy{
 		Pubkey:    "aaaaaa",
 		Status:    models.StatusAllowed,
 		CreatedAt: time.Unix(time.Now().Unix(), 0),
 		AddedBy:   "cli",
 		Reason:    "trusted developer",
 	}
-	policyBlocked = models.PubkeyPolicy{
+	policyBlocked = models.Policy{
 		Pubkey:    "bbbbbb",
 		Status:    models.StatusBlocked,
 		CreatedAt: time.Unix(time.Now().Unix(), 0),
@@ -68,7 +68,7 @@ func TestPolicies(t *testing.T) {
 		t.Fatalf("Policies: %v", err)
 	}
 
-	expected := []models.PubkeyPolicy{policyAllowed, policyBlocked}
+	expected := []models.Policy{policyAllowed, policyBlocked}
 	if !reflect.DeepEqual(all, expected) {
 		t.Fatalf("expected 2 policies, got %d", len(all))
 	}
@@ -78,7 +78,7 @@ func TestPolicies(t *testing.T) {
 		t.Fatalf("PubkeysAllowed: %v", err)
 	}
 
-	expected = []models.PubkeyPolicy{policyAllowed}
+	expected = []models.Policy{policyAllowed}
 	if !reflect.DeepEqual(allowed, expected) {
 		t.Fatalf("expected allowed: %v, got %v", expected, allowed)
 	}
@@ -91,7 +91,7 @@ func TestIsChecks(t *testing.T) {
 	}
 	defer db.Close()
 
-	policy := models.PubkeyPolicy{
+	policy := models.Policy{
 		Pubkey:    "abc123",
 		Status:    models.StatusAllowed,
 		CreatedAt: time.Now(),
@@ -126,7 +126,7 @@ func TestSetAndRemovePolicy(t *testing.T) {
 	}
 	defer db.Close()
 
-	policy := models.PubkeyPolicy{
+	policy := models.Policy{
 		Pubkey:    "ghi789",
 		Status:    models.StatusBlocked,
 		CreatedAt: time.Now(),
@@ -147,10 +147,10 @@ func TestSetAndRemovePolicy(t *testing.T) {
 		t.Error("RemovePolicy (first): got false, want true")
 	}
 
-	// PolicyOf should now return ErrPubkeyPolicyNotFound.
+	// PolicyOf should now return ErrPolicyNotFound.
 	_, err = db.PolicyOf(ctx, policy.Pubkey)
 	if !errors.Is(err, ErrPolicyNotFound) {
-		t.Errorf("PolicyOf after remove: got %v, want ErrPubkeyPolicyNotFound", err)
+		t.Errorf("PolicyOf after remove: got %v, want ErrPolicyNotFound", err)
 	}
 
 	// Second removal: nothing to delete, should report deleted=false.

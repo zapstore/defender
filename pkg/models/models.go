@@ -9,37 +9,38 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
-// CheckDecision represents the decision made for an event in the check endpoint.
-type CheckDecision string
+// Decision represents the decision made for an event in the check endpoint.
+type Decision string
 
 const (
-	DecisionAccept CheckDecision = "accept"
-	DecisionReject CheckDecision = "reject"
+	DecisionAccept Decision = "accept"
+	DecisionReject Decision = "reject"
 )
 
 // CheckResponse represents the response to a /v1/events/check request.
 type CheckResponse struct {
-	Decision CheckDecision `json:"decision"`
-	Reason   string        `json:"reason"`
+	Decision Decision `json:"decision"`
+	Reason   string   `json:"reason"`
 }
 
-// PubkeyStatus represents the status of a pubkey, either "allowed" or "blocked".
-type PubkeyStatus string
+// PolicyStatus represents the status of a policy, either "allowed" or "blocked".
+type PolicyStatus string
 
 const (
-	StatusAllowed PubkeyStatus = "allowed"
-	StatusBlocked PubkeyStatus = "blocked"
+	StatusAllowed PolicyStatus = "allowed"
+	StatusBlocked PolicyStatus = "blocked"
 )
 
-type PubkeyPolicy struct {
+// Policy represents a pubkey policy, either allowed or blocked, with other metadata.
+type Policy struct {
 	Pubkey    string       `json:"pubkey"`
-	Status    PubkeyStatus `json:"status"`
+	Status    PolicyStatus `json:"status"`
 	Reason    string       `json:"reason"`
 	AddedBy   string       `json:"added_by"`
 	CreatedAt time.Time    `json:"created_at"`
 }
 
-func (p PubkeyPolicy) Validate() error {
+func (p Policy) Validate() error {
 	if p.Pubkey == "" {
 		return fmt.Errorf("missing pubkey")
 	}
@@ -58,7 +59,7 @@ func (p PubkeyPolicy) Validate() error {
 	return nil
 }
 
-func (p PubkeyPolicy) String() string {
+func (p Policy) String() string {
 	return fmt.Sprintf("{\n"+
 		"  Pubkey: %s,\n"+
 		"  Status: %s,\n"+
@@ -69,7 +70,7 @@ func (p PubkeyPolicy) String() string {
 		p.Pubkey, p.Status, p.Reason, p.AddedBy, p.CreatedAt)
 }
 
-func (p PubkeyPolicy) MarshalJSON() ([]byte, error) {
+func (p Policy) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"pubkey":     p.Pubkey,
 		"status":     p.Status,
@@ -79,10 +80,10 @@ func (p PubkeyPolicy) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (p *PubkeyPolicy) UnmarshalJSON(data []byte) error {
+func (p *Policy) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Pubkey    string       `json:"pubkey"`
-		Status    PubkeyStatus `json:"status"`
+		Status    PolicyStatus `json:"status"`
 		Reason    string       `json:"reason"`
 		AddedBy   string       `json:"added_by"`
 		CreatedAt int64        `json:"created_at"`

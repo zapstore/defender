@@ -12,7 +12,7 @@ type EventDecision struct {
 	CheckedAt time.Time
 	EventID   string
 	Pubkey    string
-	Decision  models.CheckDecision
+	Decision  models.Decision
 	Reason    string
 }
 

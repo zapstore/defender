@@ -76,7 +76,7 @@ func (c T) Check(ctx context.Context, event *nostr.Event) (models.CheckResponse,
 }
 
 // Pubkeys calls the server "GET /v1/pubkeys" endpoint. If the status is not empty, it filters the results by status.
-func (c T) Pubkeys(ctx context.Context, status models.PubkeyStatus) ([]models.PubkeyPolicy, error) {
+func (c T) Pubkeys(ctx context.Context, status models.PolicyStatus) ([]models.Policy, error) {
 	endpoint := c.url + "/v1/pubkeys"
 	if status != "" {
 		endpoint += "?status=" + string(status)
@@ -98,7 +98,7 @@ func (c T) Pubkeys(ctx context.Context, status models.PubkeyStatus) ([]models.Pu
 		return nil, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
 	}
 
-	var pubkeys []models.PubkeyPolicy
+	var pubkeys []models.Policy
 	if err := json.NewDecoder(res.Body).Decode(&pubkeys); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -106,33 +106,33 @@ func (c T) Pubkeys(ctx context.Context, status models.PubkeyStatus) ([]models.Pu
 }
 
 // GetPolicy calls the server "GET /v1/pubkeys/:pubkey" endpoint.
-func (c T) GetPolicy(ctx context.Context, pubkey string) (models.PubkeyPolicy, error) {
+func (c T) GetPolicy(ctx context.Context, pubkey string) (models.Policy, error) {
 	endpoint := c.url + "/v1/pubkeys/" + pubkey
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return models.PubkeyPolicy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
+		return models.Policy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
 	}
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return models.PubkeyPolicy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
+		return models.Policy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return models.PubkeyPolicy{}, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
+		return models.Policy{}, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
 	}
 
-	var policy models.PubkeyPolicy
+	var policy models.Policy
 	if err := json.NewDecoder(res.Body).Decode(&policy); err != nil {
-		return models.PubkeyPolicy{}, fmt.Errorf("failed to decode response: %w", err)
+		return models.Policy{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return policy, nil
 }
 
 // SetPolicy calls the server "PUT /v1/pubkeys/:pubkey" endpoint.
-func (c T) SetPolicy(ctx context.Context, policy models.PubkeyPolicy) error {
+func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
 	endpoint := c.url + "/v1/pubkeys/" + policy.Pubkey
 	body, err := json.Marshal(policy)
 	if err != nil {

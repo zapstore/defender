@@ -17,28 +17,28 @@ const (
 	defaultTimeout = 2 * time.Second
 )
 
-type Client struct {
+type T struct {
 	url  string
 	http *http.Client
 }
 
 // New returns a new defender client that wraps the given HTTP client.
-func New(c *http.Client, url string) (Client, error) {
+func New(c *http.Client, url string) (T, error) {
 	url, err := normalizeURL(url)
 	if err != nil {
-		return Client{}, err
+		return T{}, err
 	}
-	return Client{http: c, url: url}, nil
+	return T{http: c, url: url}, nil
 }
 
 // Default returns a new defender client with a default HTTP client.
-func Default(url string) (Client, error) {
+func Default(url string) (T, error) {
 	url, err := normalizeURL(url)
 	if err != nil {
-		return Client{}, err
+		return T{}, err
 	}
 
-	return Client{
+	return T{
 		http: &http.Client{
 			Timeout: defaultTimeout,
 		},
@@ -47,7 +47,7 @@ func Default(url string) (Client, error) {
 }
 
 // Check sends an event to the defender server and returns the server's response.
-func (c Client) Check(event *nostr.Event) (models.CheckResponse, error) {
+func (c T) Check(event *nostr.Event) (models.CheckResponse, error) {
 	b, err := json.Marshal(event)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)

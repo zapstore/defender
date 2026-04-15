@@ -121,7 +121,7 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResp
 func (s *T) HandlePubkeys(w http.ResponseWriter, r *http.Request) {
 	status := models.PubkeyStatus(r.URL.Query().Get("status"))
 	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
-		http.Error(w, "invalid status filter: must be allowed or blocked", http.StatusBadRequest)
+		http.Error(w, `invalid status filter: must be "allowed" or "blocked"`, http.StatusBadRequest)
 		return
 	}
 
@@ -134,6 +134,5 @@ func (s *T) HandlePubkeys(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-
 	writeJSON(w, http.StatusOK, policies)
 }

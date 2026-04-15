@@ -45,3 +45,22 @@ func (p PubkeyPolicy) MarshalJSON() ([]byte, error) {
 		"created_at": p.CreatedAt.Unix(), // unix timestamp for simplicity
 	})
 }
+
+func (p *PubkeyPolicy) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Pubkey    string       `json:"pubkey"`
+		Status    PubkeyStatus `json:"status"`
+		Reason    string       `json:"reason"`
+		AddedBy   string       `json:"added_by"`
+		CreatedAt int64        `json:"created_at"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	p.Pubkey = raw.Pubkey
+	p.Status = raw.Status
+	p.Reason = raw.Reason
+	p.AddedBy = raw.AddedBy
+	p.CreatedAt = time.Unix(raw.CreatedAt, 0).UTC()
+	return nil
+}

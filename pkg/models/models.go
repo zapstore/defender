@@ -3,6 +3,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -34,6 +35,17 @@ type PubkeyPolicy struct {
 	Reason    string       `json:"reason"`
 	AddedBy   string       `json:"added_by"`
 	CreatedAt time.Time    `json:"created_at"`
+}
+
+func (p PubkeyPolicy) String() string {
+	return fmt.Sprintf("{\n"+
+		"  Pubkey: %s,\n"+
+		"  Status: %s,\n"+
+		"  Reason: %s,\n"+
+		"  AddedBy: %s,\n"+
+		"  CreatedAt: %s\n"+
+		"}",
+		p.Pubkey, p.Status, p.Reason, p.AddedBy, p.CreatedAt)
 }
 
 func (p PubkeyPolicy) MarshalJSON() ([]byte, error) {

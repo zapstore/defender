@@ -19,7 +19,7 @@ import (
 const usage = `defender-cli - manage pubkey policies for the defender
 
 Usage:
-  defender-cli <command> <pubkey>
+  defender-cli <command>
 
 Database:
 Uses defender.db (local db), or the path specified by the DATABASE_PATH environment variable.
@@ -29,12 +29,14 @@ Commands:
   block   <pubkey> <reason>   Set pubkey status to "blocked"
   remove  <pubkey>            Delete the policy for a pubkey
   get     <pubkey>            Print the current policy for a pubkey
+  list    <status>            Print all pubkey policies (optional status filter)
 
 Examples:
-  defender-cli allow  abc123 "trusted developer"
-  defender-cli block  abc123 "spam"
-  defender-cli remove abc123
-  defender-cli get    abc123
+  defender-cli allow  pk "trusted developer"
+  defender-cli block  pk "spam"
+  defender-cli remove pk
+  defender-cli get    pk
+  defender-cli list   allowed
 `
 
 func main() {
@@ -72,9 +74,12 @@ func main() {
 	case "get":
 		runGet(ctx, db)
 
+	case "list":
+		runList(ctx, db)
+
 	default:
 		fmt.Printf("unknown command: %s\n", cmd)
-		fmt.Println("available commands: allow, block, remove, get")
+		fmt.Println("available commands: allow, block, remove, get, list")
 	}
 }
 
@@ -177,7 +182,7 @@ func runRemove(ctx context.Context, db sqlite.DB) {
 }
 
 func runGet(ctx context.Context, db sqlite.DB) {
-	if len(os.Args) < 3 {
+	if len(os.Args) != 3 {
 		fmt.Println("invalid command: get <pubkey>")
 		return
 	}
@@ -197,13 +202,29 @@ func runGet(ctx context.Context, db sqlite.DB) {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println(policy)
+}
 
-	fmt.Println("policy of pubkey")
-	fmt.Printf("\tpubkey: %q\n", policy.Pubkey)
-	fmt.Printf("\tstatus: %q\n", policy.Status)
-	fmt.Printf("\tcreated at: %v\n", policy.CreatedAt.Unix())
-	fmt.Printf("\tadded by: %q\n", policy.AddedBy)
-	fmt.Printf("\treason: %q\n", policy.Reason)
+func runList(ctx context.Context, db sqlite.DB) {
+	if len(os.Args) > 3 {
+		fmt.Println("invalid command: list <status>")
+		return
+	}
+
+	var status models.PubkeyStatus
+	if len(os.Args) == 3 {
+		status = models.PubkeyStatus(os.Args[2])
+	}
+
+	policies, err := db.Policies(ctx, status)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, p := range policies {
+		fmt.Println(p)
+	}
 }
 
 func parsePubkey(input string) (string, error) {

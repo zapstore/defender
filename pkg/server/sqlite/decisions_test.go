@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/zapstore/defender/pkg/models"
 )
 
 var errDecisionNotFound = errors.New("decision not found")
@@ -38,7 +40,7 @@ func TestDecisionRoundtrip(t *testing.T) {
 		CheckedAt: time.Unix(time.Now().Unix(), 0), // truncate to seconds to match DB precision
 		EventID:   "aabbccddeeff",
 		Pubkey:    "pubkey123",
-		Decision:  DecisionAccept,
+		Decision:  models.DecisionAccept,
 		Reason:    "pubkey meets the minimum reputation threshold",
 	}
 

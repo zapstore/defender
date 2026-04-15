@@ -6,20 +6,22 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/zapstore/defender/pkg/models"
 )
 
 var (
 	ctx           = context.Background()
-	policyAllowed = PubkeyPolicy{
+	policyAllowed = models.PubkeyPolicy{
 		Pubkey:    "aaaaaa",
-		Status:    StatusAllowed,
+		Status:    models.StatusAllowed,
 		CreatedAt: time.Unix(time.Now().Unix(), 0),
 		AddedBy:   "cli",
 		Reason:    "trusted developer",
 	}
-	policyBlocked = PubkeyPolicy{
+	policyBlocked = models.PubkeyPolicy{
 		Pubkey:    "bbbbbb",
-		Status:    StatusBlocked,
+		Status:    models.StatusBlocked,
 		CreatedAt: time.Unix(time.Now().Unix(), 0),
 		AddedBy:   "system",
 		Reason:    "spam",
@@ -89,9 +91,9 @@ func TestIsChecks(t *testing.T) {
 	}
 	defer db.Close()
 
-	policy := PubkeyPolicy{
+	policy := models.PubkeyPolicy{
 		Pubkey:    "abc123",
-		Status:    StatusAllowed,
+		Status:    models.StatusAllowed,
 		CreatedAt: time.Now(),
 		AddedBy:   "cli",
 	}
@@ -124,9 +126,9 @@ func TestSetAndRemovePolicy(t *testing.T) {
 	}
 	defer db.Close()
 
-	policy := PubkeyPolicy{
+	policy := models.PubkeyPolicy{
 		Pubkey:    "ghi789",
-		Status:    StatusBlocked,
+		Status:    models.StatusBlocked,
 		CreatedAt: time.Now(),
 		AddedBy:   "cli",
 		Reason:    "malicious",

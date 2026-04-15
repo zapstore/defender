@@ -12,6 +12,7 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
+	"github.com/zapstore/defender/pkg/models"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 )
 
@@ -95,9 +96,9 @@ func runAllow(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	policy := sqlite.PubkeyPolicy{
+	policy := models.PubkeyPolicy{
 		Pubkey:    pubkey,
-		Status:    sqlite.StatusAllowed,
+		Status:    models.StatusAllowed,
 		CreatedAt: time.Now().UTC(),
 		AddedBy:   "cli",
 		Reason:    reason,
@@ -131,9 +132,9 @@ func runBlock(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	policy := sqlite.PubkeyPolicy{
+	policy := models.PubkeyPolicy{
 		Pubkey:    pubkey,
-		Status:    sqlite.StatusBlocked,
+		Status:    models.StatusBlocked,
 		CreatedAt: time.Now().UTC(),
 		AddedBy:   "cli",
 		Reason:    reason,

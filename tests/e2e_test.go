@@ -6,7 +6,7 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/zapstore/defender/pkg/client"
-	"github.com/zapstore/defender/pkg/server/sqlite"
+	"github.com/zapstore/defender/pkg/models"
 )
 
 var testEvent = &nostr.Event{
@@ -38,7 +38,7 @@ func TestE2E(t *testing.T) {
 	}
 	t.Log(res)
 
-	if res.Decision != sqlite.DecisionReject {
+	if res.Decision != models.DecisionReject {
 		t.Fatalf("expected decision to be reject, got %s", res.Decision)
 	}
 }

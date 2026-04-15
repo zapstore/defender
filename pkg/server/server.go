@@ -34,7 +34,7 @@ func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.HandleCheck(w, r)
 
 	default:
-		http.Error(w, "Unsupported request", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 	}
 }
 

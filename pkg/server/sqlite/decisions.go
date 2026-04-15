@@ -4,20 +4,15 @@ import (
 	"context"
 	"fmt"
 	"time"
-)
 
-type Decision string
-
-const (
-	DecisionAccept Decision = "accept"
-	DecisionReject Decision = "reject"
+	"github.com/zapstore/defender/pkg/models"
 )
 
 type EventDecision struct {
 	CheckedAt time.Time
 	EventID   string
 	Pubkey    string
-	Decision  Decision
+	Decision  models.CheckDecision
 	Reason    string
 }
 

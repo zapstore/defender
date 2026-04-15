@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
-	"github.com/zapstore/defender/pkg/server"
+	"github.com/zapstore/defender/pkg/models"
 )
 
 const (
@@ -47,26 +47,26 @@ func Default(url string) (Client, error) {
 }
 
 // Check sends an event to the defender server and returns the server's response.
-func (c Client) Check(event *nostr.Event) (server.CheckResponse, error) {
+func (c Client) Check(event *nostr.Event) (models.CheckResponse, error) {
 	b, err := json.Marshal(event)
 	if err != nil {
-		return server.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
+		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
 	}
 
 	endpoint, err := url.JoinPath(c.url, "/v1/events/check")
 	if err != nil {
-		return server.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
+		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
 	}
 
 	resp, err := c.http.Post(endpoint, "application/json", bytes.NewReader(b))
 	if err != nil {
-		return server.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
+		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var check server.CheckResponse
+	var check models.CheckResponse
 	if err := json.NewDecoder(resp.Body).Decode(&check); err != nil {
-		return server.CheckResponse{}, fmt.Errorf("failed to decode response: %w", err)
+		return models.CheckResponse{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return check, nil
 }

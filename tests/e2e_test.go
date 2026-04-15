@@ -16,6 +16,7 @@ import (
 var (
 	ctx  = context.Background()
 	addr = "http://localhost:8080"
+	pip  = "f683e87035f7ad4f44e0b98cfbd9537e16455a92cd38cefc4cb31db7557f5ef2"
 
 	// The event is signed by the nak key, which has been leaked.
 	testEvent = &nostr.Event{
@@ -75,5 +76,40 @@ func TestPubkeys(t *testing.T) {
 
 	if len(total) != len(allowed)+len(blocked) {
 		t.Fatalf("expected total pubkey policies to be sum of allowed and blocked, got %d != %d + %d", len(total), len(allowed), len(blocked))
+	}
+}
+
+func TestSetPolicy(t *testing.T) {
+	client, err := client.Default(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	policy := models.PubkeyPolicy{
+		Pubkey:  pip,
+		Status:  models.StatusAllowed,
+		Reason:  "because I am building it",
+		AddedBy: "myself",
+	}
+
+	if err := client.SetPolicy(ctx, policy); err != nil {
+		t.Fatal(err)
+	}
+
+	all, err := client.Pubkeys(ctx, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found := false
+	for _, p := range all {
+		if p.Pubkey == pip {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("expected pubkey %s to be in the list of all pubkeys", pip)
 	}
 }

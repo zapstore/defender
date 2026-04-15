@@ -48,7 +48,7 @@ func Default(url string) (T, error) {
 	}, nil
 }
 
-// Check calls the server "/v1/events/check" endpoint with the provided event.
+// Check calls the server "POST /v1/events/check" endpoint with the provided event.
 func (c T) Check(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
 	b, err := json.Marshal(event)
 	if err != nil {
@@ -75,7 +75,7 @@ func (c T) Check(ctx context.Context, event *nostr.Event) (models.CheckResponse,
 	return check, nil
 }
 
-// Pubkeys calls the server "/v1/pubkeys" endpoint. If the status is not empty, it filters the results by status.
+// Pubkeys calls the server "GET /v1/pubkeys" endpoint. If the status is not empty, it filters the results by status.
 func (c T) Pubkeys(ctx context.Context, status models.PubkeyStatus) ([]models.PubkeyPolicy, error) {
 	endpoint := c.url + "/v1/pubkeys"
 	if status != "" {
@@ -103,6 +103,33 @@ func (c T) Pubkeys(ctx context.Context, status models.PubkeyStatus) ([]models.Pu
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return pubkeys, nil
+}
+
+// SetPolicy calls the server "PUT /v1/pubkeys/:pubkey" endpoint.
+func (c T) SetPolicy(ctx context.Context, policy models.PubkeyPolicy) error {
+	endpoint := c.url + "/v1/pubkeys/" + policy.Pubkey
+	body, err := json.Marshal(policy)
+	if err != nil {
+		return fmt.Errorf("failed to marshal policy: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to set pubkey policy: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to set pubkey policy: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
+	}
+	return nil
 }
 
 func normalizeURL(u string) (string, error) {

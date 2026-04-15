@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
@@ -35,6 +36,9 @@ func (s *T) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/pubkeys":
 		s.HandlePubkeys(w, r)
+
+	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/v1/pubkeys/"):
+		s.HandlePutPubkey(w, r)
 
 	default:
 		http.Error(w, "not found", http.StatusNotFound)

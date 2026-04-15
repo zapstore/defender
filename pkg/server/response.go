@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -116,6 +117,35 @@ func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResp
 		Decision: models.DecisionAccept,
 		Reason:   "pubkey meets the minimum reputation threshold",
 	}, nil
+}
+
+func (s *T) HandlePutPubkey(w http.ResponseWriter, r *http.Request) {
+	pubkey := strings.TrimPrefix(r.URL.Path, "/v1/pubkeys/")
+	var policy models.PubkeyPolicy
+	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
+		http.Error(w, fmt.Sprintf("invalid request body: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	// overwrite fields
+	policy.Pubkey = pubkey
+	policy.CreatedAt = time.Now().UTC()
+
+	if err := policy.Validate(); err != nil {
+		http.Error(w, fmt.Sprintf("invalid request: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := s.db.SetPolicy(ctx, policy); err != nil {
+		slog.Error("HandlePutPubkey: failed to set policy", "pubkey", pubkey, "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *T) HandlePubkeys(w http.ResponseWriter, r *http.Request) {

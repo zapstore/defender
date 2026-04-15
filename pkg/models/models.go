@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/nbd-wtf/go-nostr"
 )
 
 // CheckDecision represents the decision made for an event in the check endpoint.
@@ -35,6 +37,25 @@ type PubkeyPolicy struct {
 	Reason    string       `json:"reason"`
 	AddedBy   string       `json:"added_by"`
 	CreatedAt time.Time    `json:"created_at"`
+}
+
+func (p PubkeyPolicy) Validate() error {
+	if p.Pubkey == "" {
+		return fmt.Errorf("missing pubkey")
+	}
+	if !nostr.IsValidPublicKey(p.Pubkey) {
+		return fmt.Errorf("invalid pubkey")
+	}
+	if p.Status != StatusAllowed && p.Status != StatusBlocked {
+		return fmt.Errorf("invalid status")
+	}
+	if p.AddedBy == "" {
+		return fmt.Errorf("missing added_by")
+	}
+	if p.CreatedAt.IsZero() {
+		return fmt.Errorf("missing created_at")
+	}
+	return nil
 }
 
 func (p PubkeyPolicy) String() string {

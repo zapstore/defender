@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -17,6 +18,7 @@ var (
 	ctx  = context.Background()
 	addr = "http://localhost:8080"
 	pip  = "f683e87035f7ad4f44e0b98cfbd9537e16455a92cd38cefc4cb31db7557f5ef2"
+	gigi = "6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93"
 
 	// The event is signed by the nak key, which has been leaked.
 	testEvent = &nostr.Event{
@@ -36,13 +38,13 @@ func init() {
 	}
 }
 
-func TestCheck(t *testing.T) {
+func TestCheckEvent(t *testing.T) {
 	client, err := client.Default(addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res, err := client.Check(ctx, testEvent)
+	res, err := client.CheckEvent(ctx, testEvent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,23 +55,23 @@ func TestCheck(t *testing.T) {
 	}
 }
 
-func TestPubkeys(t *testing.T) {
+func TestListPolicies(t *testing.T) {
 	client, err := client.Default(addr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	total, err := client.Pubkeys(ctx, "")
+	total, err := client.ListPolicies(ctx, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	allowed, err := client.Pubkeys(ctx, models.StatusAllowed)
+	allowed, err := client.ListPolicies(ctx, models.StatusAllowed)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	blocked, err := client.Pubkeys(ctx, models.StatusBlocked)
+	blocked, err := client.ListPolicies(ctx, models.StatusBlocked)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,6 +117,22 @@ func TestSetGetPolicy(t *testing.T) {
 	// CreatedAt is set by the server, so we can't compare it directly
 }
 
+func TestGetPolicyNotFound(t *testing.T) {
+	c, err := client.Default(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := c.GetPolicy(ctx, gigi)
+	if !errors.Is(err, client.ErrPolicyNotFound) {
+		t.Fatalf("expected error %v, got %v", client.ErrPolicyNotFound, err)
+	}
+	if got.Pubkey != "" {
+		t.Fatalf("expected empty pubkey, got %s", got.Pubkey)
+	}
+	// CreatedAt is set by the server, so we can't compare it directly
+}
+
 func TestDeletePolicy(t *testing.T) {
 	client, err := client.Default(addr)
 	if err != nil {
@@ -125,7 +143,7 @@ func TestDeletePolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all, err := client.Pubkeys(ctx, "")
+	all, err := client.ListPolicies(ctx, "")
 	if err != nil {
 		t.Fatal(err)
 	}

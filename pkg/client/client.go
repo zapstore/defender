@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,10 @@ import (
 
 const (
 	defaultTimeout = 2 * time.Second
+)
+
+var (
+	ErrPolicyNotFound = errors.New("policy not found")
 )
 
 type T struct {
@@ -48,8 +53,8 @@ func Default(url string) (T, error) {
 	}, nil
 }
 
-// Check calls the server "POST /v1/events/check" endpoint with the provided event.
-func (c T) Check(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
+// CheckEvent calls the server "POST /v1/events/check" endpoint with the provided event.
+func (c T) CheckEvent(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
 	b, err := json.Marshal(event)
 	if err != nil {
 		return models.CheckResponse{}, fmt.Errorf("failed to check event: %w", err)
@@ -75,8 +80,8 @@ func (c T) Check(ctx context.Context, event *nostr.Event) (models.CheckResponse,
 	return check, nil
 }
 
-// Pubkeys calls the server "GET /v1/pubkeys" endpoint. If the status is not empty, it filters the results by status.
-func (c T) Pubkeys(ctx context.Context, status models.PolicyStatus) ([]models.Policy, error) {
+// ListPolicies calls the server "GET /v1/policies" endpoint. If the status is not empty, it filters the results by status.
+func (c T) ListPolicies(ctx context.Context, status models.PolicyStatus) ([]models.Policy, error) {
 	endpoint := c.url + "/v1/pubkeys"
 	if status != "" {
 		endpoint += "?status=" + string(status)
@@ -119,6 +124,9 @@ func (c T) GetPolicy(ctx context.Context, pubkey string) (models.Policy, error) 
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusNotFound {
+		return models.Policy{}, ErrPolicyNotFound
+	}
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
 		return models.Policy{}, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)

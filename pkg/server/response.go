@@ -153,8 +153,12 @@ func (s *T) HandleGetPubkey(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	policy, err := s.db.PolicyOf(ctx, pubkey)
+	if errors.Is(err, sqlite.ErrPolicyNotFound) {
+		http.Error(w, "policy not found", http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		slog.Error("HandleListPubkeys: failed to fetch policies", "err", err)
+		slog.Error("HandleGetPubkeys: failed to fetch policy", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

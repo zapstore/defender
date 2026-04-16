@@ -13,6 +13,7 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/zapstore/defender/pkg/models"
+	"github.com/zapstore/defender/pkg/server/repo"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 )
 
@@ -73,15 +74,15 @@ func parseEvent(r io.Reader) (*nostr.Event, error) {
 
 // checkEvent evaluates a valid event and returns the appropriate models.CheckResponse.
 // It is the caller's responsibility to ensure the event is valid.
-func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
-	entity := models.Entity{Platform: models.PlatformNostr, ID: event.PubKey}
-	isRestricted := slices.Contains(s.config.RestrictedKinds, event.Kind)
+func (s *T) checkEvent(ctx context.Context, e *nostr.Event) (models.CheckResponse, error) {
+	entity := models.Entity{Platform: models.PlatformNostr, ID: e.PubKey}
+	isRestricted := slices.Contains(s.config.RestrictedKinds, e.Kind)
 
 	if !isRestricted {
 		// events with open kinds are accepted unless the pubkey is blocked.
 		blocked, err := s.db.IsBlocked(ctx, entity)
 		if err != nil {
-			return models.CheckResponse{}, fmt.Errorf("failed to check if the pubkey %s is blocked: %w", event.PubKey, err)
+			return models.CheckResponse{}, fmt.Errorf("failed to check if the pubkey %s is blocked: %w", e.PubKey, err)
 		}
 		if blocked {
 			return models.CheckResponse{
@@ -117,7 +118,13 @@ func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckRes
 		}
 	}
 
-	allowed, err := s.vertex.Allow(ctx, event.PubKey)
+	if e.Kind == models.KindApp {
+		if result := s.checkAppRepo(ctx, e); result != nil {
+			return *result, nil
+		}
+	}
+
+	allowed, err := s.vertex.Allow(ctx, e.PubKey)
 	if err != nil {
 		return models.CheckResponse{}, err
 	}
@@ -132,6 +139,87 @@ func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckRes
 		Decision: models.DecisionAccept,
 		Reason:   "pubkey meets the minimum reputation threshold",
 	}, nil
+}
+
+// checkAppRepo checks the repository declared in a KindApp event's "repository" tag.
+// It fetches the pubkey in the zapstore.yaml and auto-allows it.
+// If the pubkey matches the event pubkey, it returns an accept response, otherwise nil.
+func (s *T) checkAppRepo(ctx context.Context, e *nostr.Event) *models.CheckResponse {
+	tag := e.Tags.Find("repository")
+	if tag == nil || tag[1] == "" {
+		return nil
+	}
+
+	repo, err := repo.Parse(tag[1])
+	if err != nil {
+		return nil
+	}
+
+	pubkey, err := s.allowRepo(ctx, repo)
+	if err != nil {
+		slog.Error("checkAppRepo: did not allow repo", "error", err)
+		return nil
+	}
+
+	// if the pubkey matches the event pubkey, return an accept response.
+	if pubkey == e.PubKey {
+		return &models.CheckResponse{
+			Decision: models.DecisionAccept,
+			Reason:   fmt.Sprintf("pubkey %s allowed by repo validation", e.PubKey),
+		}
+	}
+	return nil
+}
+
+// allowRepo auto-allow the pubkey in the zapstore.yaml of the specified repo.
+func (s *T) allowRepo(ctx context.Context, repo repo.Parsed) (pubkey string, err error) {
+	if err := repo.Validate(); err != nil {
+		return "", err
+	}
+
+	// if the repo platform entity is blocked, this strategy does not apply
+	blocked, err := s.db.IsBlocked(ctx, repo.Entity)
+	if err != nil {
+		return "", err
+	}
+	if blocked {
+		return "", errors.New("repo entity is blocked")
+	}
+
+	pubkey, err = s.repo.Fetch(ctx, repo)
+	if err != nil {
+		return "", err
+	}
+	nostrEntity := models.Entity{
+		Platform: models.PlatformNostr,
+		ID:       pubkey,
+	}
+	if err := nostrEntity.Validate(); err != nil {
+		return "", err
+	}
+
+	// if the pubkey is blocked, this strategy does not apply
+	blocked, err = s.db.IsBlocked(ctx, nostrEntity)
+	if err != nil {
+		return "", err
+	}
+	if blocked {
+		return "", errors.New("pubkey is blocked")
+	}
+
+	// auto-allow the pubkey in the zapstore.yaml.
+	policy := models.Policy{
+		Entity:    nostrEntity,
+		Status:    models.StatusAllowed,
+		Reason:    fmt.Sprintf("allowed via zapstore.yaml in %s/%s", repo.Entity.Platform, repo.Repo),
+		AddedBy:   "repo-validation",
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := s.db.SetPolicy(ctx, policy); err != nil {
+		return "", err
+	}
+	return pubkey, nil
 }
 
 func (s *T) ListPolicies(w http.ResponseWriter, r *http.Request) {

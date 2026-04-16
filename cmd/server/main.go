@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/zapstore/defender/pkg/server"
+	"github.com/zapstore/defender/pkg/server/repo"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
@@ -34,8 +35,9 @@ func main() {
 	defer db.Close()
 
 	vertex := vertex.NewFilter(config.Vertex)
-	server := server.New(config, db, vertex)
+	repo := repo.NewFetcher(config.Repo)
 
+	server := server.New(config, db, vertex, repo)
 	if err := server.Start(ctx); err != nil {
 		panic(err)
 	}

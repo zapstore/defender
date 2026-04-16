@@ -8,6 +8,7 @@ import (
 	"github.com/caarlos0/env/v11"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/zapstore/defender/pkg/models"
+	"github.com/zapstore/defender/pkg/server/repo"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
@@ -15,6 +16,7 @@ import (
 type Config struct {
 	DB     sqlite.Config
 	Vertex vertex.Config
+	Repo   repo.Config
 	HTTP   HTTPConfig
 
 	// RestrictedKinds is a list of event kinds that need to go through the full verification process.
@@ -27,6 +29,7 @@ func NewConfig() Config {
 	return Config{
 		DB:     sqlite.NewConfig(),
 		Vertex: vertex.NewConfig(),
+		Repo:   repo.NewConfig(),
 		HTTP:   NewHTTPConfig(),
 		RestrictedKinds: []int{
 			models.KindApp,
@@ -55,6 +58,9 @@ func (c Config) Validate() error {
 	if err := c.Vertex.Validate(); err != nil {
 		return fmt.Errorf("vertex: %w", err)
 	}
+	if err := c.Repo.Validate(); err != nil {
+		return fmt.Errorf("repo: %w", err)
+	}
 	if err := c.HTTP.Validate(); err != nil {
 		return fmt.Errorf("http: %w", err)
 	}
@@ -65,6 +71,7 @@ func (c Config) String() string {
 	var b strings.Builder
 	b.WriteString(c.DB.String())
 	b.WriteString(c.Vertex.String())
+	b.WriteString(c.Repo.String())
 	b.WriteString(c.HTTP.String())
 	b.WriteString(fmt.Sprintf("\nRestricted Kinds: %v\n", c.RestrictedKinds))
 	return b.String()

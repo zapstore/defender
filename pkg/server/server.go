@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/zapstore/defender/pkg/server/repo"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
@@ -15,16 +16,18 @@ import (
 type T struct {
 	mux    *http.ServeMux
 	db     sqlite.DB
+	repo   *repo.Fetcher
 	vertex vertex.Filter
 	config Config
 }
 
 // New returns a new server instance with the given configuration and dependencies.
-func New(c Config, db sqlite.DB, filter vertex.Filter) *T {
+func New(c Config, db sqlite.DB, vertex vertex.Filter, repo *repo.Fetcher) *T {
 	s := &T{
 		mux:    http.NewServeMux(),
 		db:     db,
-		vertex: filter,
+		vertex: vertex,
+		repo:   repo,
 		config: c,
 	}
 

@@ -109,6 +109,11 @@ func (a Algorithm) Validate() error {
 }
 
 func (c Config) String() string {
+	sk := "[not set]"
+	if c.SecretKey != "" {
+		sk = c.SecretKey[:4] + "___REDACTED___" + c.SecretKey[len(c.SecretKey)-4:]
+	}
+
 	return fmt.Sprintf("Vertex:\n"+
 		"\tSecret Key: %s\n"+
 		"\tRequest Timeout: %v\n"+
@@ -118,7 +123,7 @@ func (c Config) String() string {
 		"\t\tSource: %s\n"+
 		"\t\tSort: %s\n"+
 		"\t\tThreshold: %f\n",
-		c.SecretKey[:4]+"___REDACTED___"+c.SecretKey[len(c.SecretKey)-4:],
+		sk,
 		c.Timeout,
 		c.CacheExpiration, c.CacheSize,
 		c.Algorithm.Source,

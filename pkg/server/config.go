@@ -64,6 +64,7 @@ type HTTPConfig struct {
 	WriteTimeout    time.Duration `env:"HTTP_WRITE_TIMEOUT"`
 	IdleTimeout     time.Duration `env:"HTTP_IDLE_TIMEOUT"`
 	ShutdownTimeout time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT"`
+	MaxBodyBytes    int64         `env:"HTTP_MAX_BODY_BYTES"`
 }
 
 func NewHTTPConfig() HTTPConfig {
@@ -73,6 +74,7 @@ func NewHTTPConfig() HTTPConfig {
 		WriteTimeout:    10 * time.Second,
 		IdleTimeout:     120 * time.Second,
 		ShutdownTimeout: 5 * time.Second,
+		MaxBodyBytes:    1024 * 1024, // 1 MB
 	}
 }
 

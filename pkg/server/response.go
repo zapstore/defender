@@ -14,10 +14,8 @@ import (
 	"github.com/zapstore/defender/pkg/server/sqlite"
 )
 
-const maxEventBytes = 1024 * 1024 // 1 MB
-
 func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxEventBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
 	var event nostr.Event
 
 	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
@@ -166,6 +164,8 @@ func (s *T) GetPolicy(w http.ResponseWriter, r *http.Request) {
 
 func (s *T) SetPolicy(w http.ResponseWriter, r *http.Request) {
 	pubkey := r.PathValue("pubkey")
+	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
+
 	var policy models.Policy
 	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
 		http.Error(w, fmt.Sprintf("invalid request body: %s", err), http.StatusBadRequest)

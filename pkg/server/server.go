@@ -30,9 +30,9 @@ func New(c Config, db sqlite.DB, filter vertex.Filter) *T {
 
 	s.mux.HandleFunc("POST /v1/events/check", s.CheckEvent)
 	s.mux.HandleFunc("GET /v1/policies", s.ListPolicies)
-	s.mux.HandleFunc("GET /v1/policies/{pubkey}", s.GetPolicy)
-	s.mux.HandleFunc("PUT /v1/policies/{pubkey}", s.SetPolicy)
-	s.mux.HandleFunc("DELETE /v1/policies/{pubkey}", s.DeletePolicy)
+	s.mux.HandleFunc("GET /v1/policies/{platform}/{id}", s.GetPolicy)
+	s.mux.HandleFunc("PUT /v1/policies/{platform}/{id}", s.SetPolicy)
+	s.mux.HandleFunc("DELETE /v1/policies/{platform}/{id}", s.DeletePolicy)
 	return s
 }
 

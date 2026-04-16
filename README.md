@@ -40,15 +40,19 @@ The defender owns everything that requires external knowledge, accumulated histo
 ## Running
 
 Make a `.env` file, customize it to your needs and fill in the required variables.
-You can take a look at the `.env.example` for the list of supported variables with their
-default values.
-
+You can take a look at the `.env.example` for the list of supported variables with their default values.
 
 ```bash
 go run ./cmd
 ```
 
 The server listens on `localhost:8080` by default.
+
+## CLI
+
+The `defender-cli` tool manages entity policies directly against the local database.
+
+By default the CLI uses `defender.db` in the current directory. Override with the `DATABASE_PATH` environment variable.
 
 ## API
 
@@ -79,16 +83,24 @@ Evaluates a Nostr event and returns an admission decision.
 }
 ```
 
+---
+
 ### `GET /v1/policies`
 
-Returns all pubkey policies. Accepts an optional `?status=allowed|blocked` query parameter to filter results.
+Returns all policies. Accepts optional query parameters to filter results:
+
+- `?platform=nostr|github|gitlab|codeberg`
+- `?status=allowed|blocked`
+
+Both filters can be combined: `?platform=github&status=blocked`.
 
 **Response**:
 
 ```jsonc
 [
   {
-    "pubkey": "...",
+    "id": "...",
+    "platform": "nostr" | "github" | "gitlab" | "codeberg",
     "status": "allowed" | "blocked",
     "reason": "...",
     "added_by": "...",
@@ -99,17 +111,17 @@ Returns all pubkey policies. Accepts an optional `?status=allowed|blocked` query
 
 ---
 
-### `GET /v1/policies/{pubkey}`
+### `GET /v1/policies/{platform}/{id}`
 
-Returns the policy for a specific pubkey.
+Returns the policy for a specific entity.
 
-**Response**: a single policy object as above. Returns `404` if no policy exists for the pubkey.
+**Response**: a single policy object as above. Returns `404` if no policy exists for the entity.
 
 ---
 
-### `PUT /v1/policies/{pubkey}`
+### `PUT /v1/policies/{platform}/{id}`
 
-Creates or updates the policy for a pubkey.
+Creates or updates the policy for an entity.
 
 **Request body**:
 
@@ -125,6 +137,6 @@ Creates or updates the policy for a pubkey.
 
 ---
 
-### `DELETE /v1/policies/{pubkey}`
+### `DELETE /v1/policies/{platform}/{id}`
 
-Removes the policy for a pubkey. Returns `204 No Content` regardless of whether the policy existed.
+Removes the policy for an entity. Returns `204 No Content` regardless of whether the policy existed.

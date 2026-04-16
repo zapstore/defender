@@ -80,11 +80,20 @@ func (c T) CheckEvent(ctx context.Context, event *nostr.Event) (models.CheckResp
 	return check, nil
 }
 
-// ListPolicies calls the server "GET /v1/policies" endpoint. If the status is not empty, it filters the results by status.
-func (c T) ListPolicies(ctx context.Context, status models.PolicyStatus) ([]models.Policy, error) {
+// ListPolicies calls the server "GET /v1/policies" endpoint.
+// If the platform is not empty, it filters the results by platform.
+// If the status is not empty, it filters the results by status.
+func (c T) ListPolicies(ctx context.Context, platform models.Platform, status models.PolicyStatus) ([]models.Policy, error) {
 	endpoint := c.url + "/v1/policies"
+	params := url.Values{}
+	if platform != "" {
+		params.Set("platform", string(platform))
+	}
 	if status != "" {
-		endpoint += "?status=" + string(status)
+		params.Set("status", string(status))
+	}
+	if len(params) > 0 {
+		endpoint += "?" + params.Encode()
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -111,8 +120,8 @@ func (c T) ListPolicies(ctx context.Context, status models.PolicyStatus) ([]mode
 }
 
 // GetPolicy calls the server "GET /v1/policies/:pubkey" endpoint.
-func (c T) GetPolicy(ctx context.Context, pubkey string) (models.Policy, error) {
-	endpoint := c.url + "/v1/policies/" + pubkey
+func (c T) GetPolicy(ctx context.Context, entity models.Entity) (models.Policy, error) {
+	endpoint := fmt.Sprintf("%s/v1/policies/%s/%s", c.url, entity.Platform, entity.ID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return models.Policy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
@@ -141,7 +150,7 @@ func (c T) GetPolicy(ctx context.Context, pubkey string) (models.Policy, error) 
 
 // SetPolicy calls the server "PUT /v1/policies/:pubkey" endpoint.
 func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
-	endpoint := c.url + "/v1/policies/" + policy.Pubkey
+	endpoint := fmt.Sprintf("%s/v1/policies/%s/%s", c.url, policy.Entity.Platform, policy.Entity.ID)
 	body, err := json.Marshal(policy)
 	if err != nil {
 		return fmt.Errorf("failed to marshal policy: %w", err)
@@ -167,8 +176,8 @@ func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
 }
 
 // DeletePolicy calls the server "DELETE /v1/policies/:pubkey" endpoint.
-func (c T) DeletePolicy(ctx context.Context, pubkey string) error {
-	endpoint := c.url + "/v1/policies/" + pubkey
+func (c T) DeletePolicy(ctx context.Context, entity models.Entity) error {
+	endpoint := fmt.Sprintf("%s/v1/policies/%s/%s", c.url, entity.Platform, entity.ID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {

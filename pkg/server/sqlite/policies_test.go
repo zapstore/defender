@@ -13,14 +13,20 @@ import (
 var (
 	ctx           = context.Background()
 	policyAllowed = models.Policy{
-		Pubkey:    "aaaaaa",
+		Entity: models.Entity{
+			ID:       "github-account",
+			Platform: models.PlatformGithub,
+		},
 		Status:    models.StatusAllowed,
 		CreatedAt: time.Unix(time.Now().Unix(), 0),
 		AddedBy:   "cli",
 		Reason:    "trusted developer",
 	}
 	policyBlocked = models.Policy{
-		Pubkey:    "bbbbbb",
+		Entity: models.Entity{
+			ID:       "pubkey",
+			Platform: models.PlatformNostr,
+		},
 		Status:    models.StatusBlocked,
 		CreatedAt: time.Unix(time.Now().Unix(), 0),
 		AddedBy:   "system",
@@ -39,7 +45,7 @@ func TestSetReadPolicy(t *testing.T) {
 		t.Fatalf("SetPolicy: %v", err)
 	}
 
-	got, err := db.PolicyOf(ctx, policyAllowed.Pubkey)
+	got, err := db.PolicyOf(ctx, policyAllowed.Entity)
 	if err != nil {
 		t.Fatalf("PolicyOf: %v", err)
 	}
@@ -63,7 +69,7 @@ func TestPolicies(t *testing.T) {
 		t.Fatalf("SetPolicy: %v", err)
 	}
 
-	all, err := db.Policies(ctx, "")
+	all, err := db.Policies(ctx, "", "")
 	if err != nil {
 		t.Fatalf("Policies: %v", err)
 	}
@@ -73,7 +79,7 @@ func TestPolicies(t *testing.T) {
 		t.Fatalf("expected 2 policies, got %d", len(all))
 	}
 
-	allowed, err := db.Policies(ctx, models.StatusAllowed)
+	allowed, err := db.Policies(ctx, "", models.StatusAllowed)
 	if err != nil {
 		t.Fatalf("PubkeysAllowed: %v", err)
 	}
@@ -91,18 +97,11 @@ func TestIsChecks(t *testing.T) {
 	}
 	defer db.Close()
 
-	policy := models.Policy{
-		Pubkey:    "abc123",
-		Status:    models.StatusAllowed,
-		CreatedAt: time.Now(),
-		AddedBy:   "cli",
-	}
-
-	if err := db.SetPolicy(ctx, policy); err != nil {
+	if err := db.SetPolicy(ctx, policyAllowed); err != nil {
 		t.Fatalf("SetPolicy: %v", err)
 	}
 
-	allowed, err := db.IsAllowed(ctx, policy.Pubkey)
+	allowed, err := db.IsAllowed(ctx, policyAllowed.Entity)
 	if err != nil {
 		t.Fatalf("IsAllowed: %v", err)
 	}
@@ -110,7 +109,7 @@ func TestIsChecks(t *testing.T) {
 		t.Error("IsAllowed: got false, want true")
 	}
 
-	blocked, err := db.IsBlocked(ctx, policy.Pubkey)
+	blocked, err := db.IsBlocked(ctx, policyAllowed.Entity)
 	if err != nil {
 		t.Fatalf("IsBlocked: %v", err)
 	}
@@ -126,20 +125,12 @@ func TestSetAndDeletePolicy(t *testing.T) {
 	}
 	defer db.Close()
 
-	policy := models.Policy{
-		Pubkey:    "ghi789",
-		Status:    models.StatusBlocked,
-		CreatedAt: time.Now(),
-		AddedBy:   "cli",
-		Reason:    "malicious",
-	}
-
-	if err := db.SetPolicy(ctx, policy); err != nil {
+	if err := db.SetPolicy(ctx, policyAllowed); err != nil {
 		t.Fatalf("SetPolicy: %v", err)
 	}
 
 	// First removal: the row exists, should report deleted=true.
-	deleted, err := db.DeletePolicy(ctx, policy.Pubkey)
+	deleted, err := db.DeletePolicy(ctx, policyAllowed.Entity)
 	if err != nil {
 		t.Fatalf("RemovePolicy (first): %v", err)
 	}
@@ -148,13 +139,13 @@ func TestSetAndDeletePolicy(t *testing.T) {
 	}
 
 	// PolicyOf should now return ErrPolicyNotFound.
-	_, err = db.PolicyOf(ctx, policy.Pubkey)
+	_, err = db.PolicyOf(ctx, policyAllowed.Entity)
 	if !errors.Is(err, ErrPolicyNotFound) {
 		t.Errorf("PolicyOf after remove: got %v, want ErrPolicyNotFound", err)
 	}
 
 	// Second removal: nothing to delete, should report deleted=false.
-	deleted, err = db.DeletePolicy(ctx, policy.Pubkey)
+	deleted, err = db.DeletePolicy(ctx, policyAllowed.Entity)
 	if err != nil {
 		t.Fatalf("RemovePolicy (second): %v", err)
 	}

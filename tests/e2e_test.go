@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -20,15 +21,14 @@ var (
 	pip  = "f683e87035f7ad4f44e0b98cfbd9537e16455a92cd38cefc4cb31db7557f5ef2"
 	gigi = "6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93"
 
-	// The event is signed by the nak key, which has been leaked.
-	testEvent = &nostr.Event{
-		Kind:      1,
-		ID:        "5df0478720ef7955a139b6362ae10284e51511a0cdb66c96d526f2ec57637c51",
+	// The event is signed by the nak key, which has been leaked, so it should not pass full vertex validation.
+	appEvent = &nostr.Event{
+		Kind:      models.KindApp,
+		ID:        "c5fb9e11fff18013d7256fa7d6e641e2b21eb5667a7f95726924dd45874ca1d2",
 		PubKey:    "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
-		CreatedAt: 1776174277,
+		CreatedAt: 1776346594,
 		Tags:      []nostr.Tag{},
-		Content:   "hello from the nostr army knife",
-		Sig:       "9ccfef79cbd609c8fc0ffd8644c7e2dc6e5d4bced31da193cc30cb3b1e40c75eb4754739ef2fbf95def56c8440c3f3e1394b412fcc10eb6d8a5aca332f455b9b",
+		Sig:       "c7b7a6b2b84a3980d2645b808440ffac15d8263b226dbbd66797c8bb525140d188784e7a5190f99f2f95d8aaa5187864efec062b9c1d78595d72dd723f0c34e1",
 	}
 )
 
@@ -44,7 +44,7 @@ func TestCheckEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.CheckEvent(ctx, testEvent)
+	res, err := client.CheckEvent(ctx, appEvent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,17 +61,17 @@ func TestListPolicies(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	total, err := client.ListPolicies(ctx, "")
+	total, err := client.ListPolicies(ctx, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	allowed, err := client.ListPolicies(ctx, models.StatusAllowed)
+	allowed, err := client.ListPolicies(ctx, "", models.StatusAllowed)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	blocked, err := client.ListPolicies(ctx, models.StatusBlocked)
+	blocked, err := client.ListPolicies(ctx, "", models.StatusBlocked)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,10 @@ func TestSetGetPolicy(t *testing.T) {
 	}
 
 	policy := models.Policy{
-		Pubkey:  pip,
+		Entity: models.Entity{
+			ID:       pip,
+			Platform: models.PlatformNostr,
+		},
 		Status:  models.StatusAllowed,
 		Reason:  "because I am building it",
 		AddedBy: "myself",
@@ -98,12 +101,15 @@ func TestSetGetPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := client.GetPolicy(ctx, policy.Pubkey)
+	got, err := client.GetPolicy(ctx, policy.Entity)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Pubkey != policy.Pubkey {
-		t.Fatalf("expected pubkey %s, got %s", policy.Pubkey, got.Pubkey)
+	if got.Entity.ID != policy.Entity.ID {
+		t.Fatalf("expected pubkey %s, got %s", policy.Entity.ID, got.Entity.ID)
+	}
+	if got.Entity.Platform != policy.Entity.Platform {
+		t.Fatalf("expected platform %s, got %s", policy.Entity.Platform, got.Entity.Platform)
 	}
 	if got.Status != policy.Status {
 		t.Fatalf("expected status %s, got %s", policy.Status, got.Status)
@@ -123,14 +129,14 @@ func TestGetPolicyNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := c.GetPolicy(ctx, gigi)
+	entity := models.Entity{
+		ID:       gigi,
+		Platform: models.PlatformNostr,
+	}
+	_, err = c.GetPolicy(ctx, entity)
 	if !errors.Is(err, client.ErrPolicyNotFound) {
 		t.Fatalf("expected error %v, got %v", client.ErrPolicyNotFound, err)
 	}
-	if got.Pubkey != "" {
-		t.Fatalf("expected empty pubkey, got %s", got.Pubkey)
-	}
-	// CreatedAt is set by the server, so we can't compare it directly
 }
 
 func TestDeletePolicy(t *testing.T) {
@@ -139,18 +145,23 @@ func TestDeletePolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := client.DeletePolicy(ctx, pip); err != nil {
+	entity := models.Entity{
+		ID:       gigi,
+		Platform: models.PlatformNostr,
+	}
+
+	if err := client.DeletePolicy(ctx, entity); err != nil {
 		t.Fatal(err)
 	}
 
-	all, err := client.ListPolicies(ctx, "")
+	all, err := client.ListPolicies(ctx, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	found := false
 	for _, p := range all {
-		if p.Pubkey == pip {
+		if reflect.DeepEqual(p.Entity, entity) {
 			found = true
 			break
 		}

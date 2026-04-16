@@ -74,10 +74,12 @@ func parseEvent(r io.Reader) (*nostr.Event, error) {
 // checkEvent evaluates a valid event and returns the appropriate models.CheckResponse.
 // It is the caller's responsibility to ensure the event is valid.
 func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
+	entity := models.Entity{Platform: models.PlatformNostr, ID: event.PubKey}
 	isRestricted := slices.Contains(s.config.RestrictedKinds, event.Kind)
+
 	if !isRestricted {
 		// events with open kinds are accepted unless the pubkey is blocked.
-		blocked, err := s.db.IsBlocked(ctx, event.PubKey)
+		blocked, err := s.db.IsBlocked(ctx, entity)
 		if err != nil {
 			return models.CheckResponse{}, fmt.Errorf("failed to check if the pubkey %s is blocked: %w", event.PubKey, err)
 		}
@@ -94,7 +96,7 @@ func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckRes
 	}
 
 	// full verification for restricted event kinds
-	policy, err := s.db.PolicyOf(ctx, event.PubKey)
+	policy, err := s.db.PolicyOf(ctx, entity)
 	if err != nil && !errors.Is(err, sqlite.ErrPolicyNotFound) {
 		return models.CheckResponse{}, err
 	}
@@ -134,15 +136,21 @@ func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckRes
 
 func (s *T) ListPolicies(w http.ResponseWriter, r *http.Request) {
 	status := models.PolicyStatus(r.URL.Query().Get("status"))
-	if status != "" && status != models.StatusAllowed && status != models.StatusBlocked {
+	if status != "" && !status.IsValid() {
 		http.Error(w, `invalid status filter: must be "allowed" or "blocked"`, http.StatusBadRequest)
+		return
+	}
+
+	platform := models.Platform(r.URL.Query().Get("platform"))
+	if platform != "" && !platform.IsValid() {
+		http.Error(w, `invalid platform filter"`, http.StatusBadRequest)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
-	policies, err := s.db.Policies(ctx, status)
+	policies, err := s.db.Policies(ctx, platform, status)
 	if err != nil {
 		slog.Error("ListPolicies failed", "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -152,20 +160,20 @@ func (s *T) ListPolicies(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *T) GetPolicy(w http.ResponseWriter, r *http.Request) {
-	pubkey := r.PathValue("pubkey")
-	if pubkey == "" {
-		http.Error(w, "missing pubkey", http.StatusBadRequest)
-		return
+	entity := models.Entity{
+		ID:       r.PathValue("id"),
+		Platform: models.Platform(r.PathValue("platform")),
 	}
-	if !nostr.IsValidPublicKey(pubkey) {
-		http.Error(w, "invalid pubkey", http.StatusBadRequest)
+
+	if err := entity.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 	defer cancel()
 
-	policy, err := s.db.PolicyOf(ctx, pubkey)
+	policy, err := s.db.PolicyOf(ctx, entity)
 	if errors.Is(err, sqlite.ErrPolicyNotFound) {
 		http.Error(w, "policy not found", http.StatusNotFound)
 		return
@@ -179,9 +187,17 @@ func (s *T) GetPolicy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *T) SetPolicy(w http.ResponseWriter, r *http.Request) {
-	pubkey := r.PathValue("pubkey")
-	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
+	entity := models.Entity{
+		ID:       r.PathValue("id"),
+		Platform: models.Platform(r.PathValue("platform")),
+	}
 
+	if err := entity.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
 	var policy models.Policy
 	if err := json.NewDecoder(r.Body).Decode(&policy); err != nil {
 		http.Error(w, fmt.Sprintf("invalid request body: %s", err), http.StatusBadRequest)
@@ -189,7 +205,7 @@ func (s *T) SetPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// overwrite fields
-	policy.Pubkey = pubkey
+	policy.Entity = entity
 	policy.CreatedAt = time.Now().UTC()
 
 	if err := policy.Validate(); err != nil {
@@ -201,7 +217,7 @@ func (s *T) SetPolicy(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := s.db.SetPolicy(ctx, policy); err != nil {
-		slog.Error("SetPolicy failed", "pubkey", pubkey, "err", err)
+		slog.Error("SetPolicy failed", "id", entity.ID, "platform", entity.Platform, "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -210,17 +226,21 @@ func (s *T) SetPolicy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *T) DeletePolicy(w http.ResponseWriter, r *http.Request) {
-	pubkey := r.PathValue("pubkey")
-	if pubkey == "" || !nostr.IsValidPublicKey(pubkey) {
-		http.Error(w, "invalid pubkey", http.StatusBadRequest)
+	entity := models.Entity{
+		ID:       r.PathValue("id"),
+		Platform: models.Platform(r.PathValue("platform")),
+	}
+
+	if err := entity.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 	defer cancel()
 
-	if _, err := s.db.DeletePolicy(ctx, pubkey); err != nil {
-		slog.Error("DeletePolicy failed", "pubkey", pubkey, "err", err)
+	if _, err := s.db.DeletePolicy(ctx, entity); err != nil {
+		slog.Error("DeletePolicy failed", "id", entity.ID, "platform", entity.Platform, "err", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

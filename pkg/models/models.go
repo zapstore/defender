@@ -55,6 +55,13 @@ func (p Platform) IsValid() bool {
 	return p == PlatformNostr || p == PlatformGithub || p == PlatformGitlab || p == PlatformCodeberg
 }
 
+func (p Platform) Validate() error {
+	if !p.IsValid() {
+		return fmt.Errorf("unsupported platform: %s", p)
+	}
+	return nil
+}
+
 // Entity represents a policy entity with an identifier and platform.
 // E.g. if the platform is "nostr", the ID is a public key.
 // E.g. if the platform is "github", the ID is a username.

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -55,6 +56,7 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// parseEvent parses a JSON-encoded event from a reader, validating ID and signature.
 func parseEvent(r io.Reader) (*nostr.Event, error) {
 	var event nostr.Event
 	if err := json.NewDecoder(r).Decode(&event); err != nil {
@@ -70,15 +72,35 @@ func parseEvent(r io.Reader) (*nostr.Event, error) {
 }
 
 // checkEvent evaluates a valid event and returns the appropriate models.CheckResponse.
-// It is the caller's responsibility to ensure the event is valid before calling this function.
+// It is the caller's responsibility to ensure the event is valid.
 func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
-	// Fast path: check local DB policy first.
+	isRestricted := slices.Contains(s.config.RestrictedKinds, event.Kind)
+	if !isRestricted {
+		// events with open kinds are accepted unless the pubkey is blocked.
+		blocked, err := s.db.IsBlocked(ctx, event.PubKey)
+		if err != nil {
+			return models.CheckResponse{}, fmt.Errorf("failed to check if the pubkey %s is blocked: %w", event.PubKey, err)
+		}
+		if blocked {
+			return models.CheckResponse{
+				Decision: models.DecisionReject,
+				Reason:   "pubkey is blocked",
+			}, nil
+		}
+		return models.CheckResponse{
+			Decision: models.DecisionAccept,
+			Reason:   "event kind is not restricted, and pubkey is not blocked",
+		}, nil
+	}
+
+	// full verification for restricted event kinds
 	policy, err := s.db.PolicyOf(ctx, event.PubKey)
 	if err != nil && !errors.Is(err, sqlite.ErrPolicyNotFound) {
 		return models.CheckResponse{}, err
 	}
 
 	if err == nil {
+		// a policy exists, so we use it
 		switch policy.Status {
 		case models.StatusBlocked:
 			return models.CheckResponse{
@@ -93,7 +115,6 @@ func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckRes
 		}
 	}
 
-	// Slow path: fall back to Vertex reputation check.
 	allowed, err := s.vertex.Allow(ctx, event.PubKey)
 	if err != nil {
 		return models.CheckResponse{}, err
@@ -105,7 +126,6 @@ func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckRes
 			Reason:   "pubkey does not meet the minimum reputation threshold",
 		}, nil
 	}
-
 	return models.CheckResponse{
 		Decision: models.DecisionAccept,
 		Reason:   "pubkey meets the minimum reputation threshold",

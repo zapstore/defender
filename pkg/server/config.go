@@ -7,6 +7,7 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/zapstore/defender/pkg/models"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
@@ -15,6 +16,10 @@ type Config struct {
 	DB     sqlite.Config
 	Vertex vertex.Config
 	HTTP   HTTPConfig
+
+	// RestrictedKinds is a list of event kinds that need to go through the full verification process.
+	// Events with other kinds are accepted unless the pubkey is blocked.
+	RestrictedKinds []int `env:"RESTRICTED_KINDS"`
 }
 
 // NewConfig creates a new config with default parameters.
@@ -23,6 +28,13 @@ func NewConfig() Config {
 		DB:     sqlite.NewConfig(),
 		Vertex: vertex.NewConfig(),
 		HTTP:   NewHTTPConfig(),
+		RestrictedKinds: []int{
+			models.KindApp,
+			models.KindRelease,
+			models.KindAsset,
+			models.KindCommunityCreation,
+			models.KindIdentityProof,
+		},
 	}
 }
 
@@ -54,6 +66,7 @@ func (c Config) String() string {
 	b.WriteString(c.DB.String())
 	b.WriteString(c.Vertex.String())
 	b.WriteString(c.HTTP.String())
+	b.WriteString(fmt.Sprintf("\nRestricted Kinds: %v\n", c.RestrictedKinds))
 	return b.String()
 }
 
@@ -94,6 +107,9 @@ func (c HTTPConfig) Validate() error {
 	if c.ShutdownTimeout <= time.Second {
 		return fmt.Errorf("shutdown timeout must be greater than 1 second to function reliably")
 	}
+	if c.MaxBodyBytes <= 1024 {
+		return fmt.Errorf("max body bytes must be greater than 1KB, or most events will be rejected")
+	}
 	return nil
 }
 
@@ -103,11 +119,13 @@ func (c HTTPConfig) String() string {
 		"\tRead Timeout: %s\n"+
 		"\tWrite Timeout: %s\n"+
 		"\tIdle Timeout: %s\n"+
-		"\tShutdown Timeout: %s\n",
+		"\tShutdown Timeout: %s\n"+
+		"\tMax Body Bytes: %d\n",
 		c.Addr,
 		c.ReadTimeout,
 		c.WriteTimeout,
 		c.IdleTimeout,
 		c.ShutdownTimeout,
+		c.MaxBodyBytes,
 	)
 }

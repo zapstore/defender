@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -16,31 +17,12 @@ import (
 
 func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
-	var event nostr.Event
-
-	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
-		slog.Error("checkHandler: invalid event JSON", "err", err)
+	event, err := parseEvent(r.Body)
+	if err != nil {
+		slog.Error("CheckEvent: invalid event", "err", err)
 		writeJSON(w, http.StatusBadRequest, models.CheckResponse{
 			Decision: models.DecisionReject,
-			Reason:   fmt.Sprintf("invalid event payload: %s", err),
-		})
-		return
-	}
-
-	if !event.CheckID() {
-		slog.Error("checkHandler: invalid event id", "event", event)
-		writeJSON(w, http.StatusBadRequest, models.CheckResponse{
-			Decision: models.DecisionReject,
-			Reason:   "invalid event id",
-		})
-		return
-	}
-
-	if ok, err := event.CheckSignature(); err != nil || !ok {
-		slog.Error("checkHandler: invalid event signature", "event", event)
-		writeJSON(w, http.StatusBadRequest, models.CheckResponse{
-			Decision: models.DecisionReject,
-			Reason:   "invalid event signature",
+			Reason:   err.Error(),
 		})
 		return
 	}
@@ -50,7 +32,7 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 
 	response, err := s.checkEvent(ctx, event)
 	if err != nil {
-		slog.Error("checkHandler: failed to check event", "err", err)
+		slog.Error("CheckEvent: failed to check event", "err", err)
 		writeJSON(w, http.StatusInternalServerError, models.CheckResponse{
 			Decision: models.DecisionReject,
 			Reason:   "internal error while checking event",
@@ -73,9 +55,23 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func parseEvent(r io.Reader) (*nostr.Event, error) {
+	var event nostr.Event
+	if err := json.NewDecoder(r).Decode(&event); err != nil {
+		return nil, fmt.Errorf("invalid event payload: %w", err)
+	}
+	if !event.CheckID() {
+		return nil, fmt.Errorf("invalid event id")
+	}
+	if ok, err := event.CheckSignature(); err != nil || !ok {
+		return nil, fmt.Errorf("invalid event signature")
+	}
+	return &event, nil
+}
+
 // checkEvent evaluates a valid event and returns the appropriate models.CheckResponse.
 // It is the caller's responsibility to ensure the event is valid before calling this function.
-func (s *T) checkEvent(ctx context.Context, event nostr.Event) (models.CheckResponse, error) {
+func (s *T) checkEvent(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
 	// Fast path: check local DB policy first.
 	policy, err := s.db.PolicyOf(ctx, event.PubKey)
 	if err != nil && !errors.Is(err, sqlite.ErrPolicyNotFound) {

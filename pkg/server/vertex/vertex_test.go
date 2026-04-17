@@ -13,12 +13,20 @@ const (
 	leakedMickey = "e4b67f9f7c0a1cce1c24ca9196f8e1446fcce17fdef5d5eb46a3929433ea4d91"
 )
 
-// Run this test with:
+// The following tests require a Nostr secret key to sign requests to the Vertex DVM.
+// Run them with:
 //
 // VERTEX_SECRET_KEY=<your_secret_key> go test
-//
-// Where <your_secret_key> is a secret key with enough credits for signing the Vertex DVM requests.
-func TestFilter_Allow(t *testing.T) {
+var config = NewConfig()
+
+func init() {
+	config.SecretKey = os.Getenv("VERTEX_SECRET_KEY")
+	if config.SecretKey == "" {
+		panic("VERTEX_SECRET_KEY environment variable is not set")
+	}
+}
+
+func TestAllow(t *testing.T) {
 	tests := []struct {
 		name      string
 		pubkey    string
@@ -63,12 +71,6 @@ func TestFilter_Allow(t *testing.T) {
 		},
 	}
 
-	config := NewConfig()
-	config.SecretKey = os.Getenv("VERTEX_SECRET_KEY")
-	if config.SecretKey == "" {
-		t.Fatalf("VERTEX_SECRET_KEY environment variable is not set")
-	}
-
 	filter := NewFilter(config)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -84,4 +86,13 @@ func TestFilter_Allow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckCredits(t *testing.T) {
+	filter := NewFilter(config)
+	res, err := filter.CheckCredits(context.Background())
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	t.Logf("credits response:\n %s", res)
 }

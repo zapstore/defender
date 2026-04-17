@@ -17,8 +17,10 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
-const Endpoint = "https://relay.vertexlab.io/api/v1/dvms"
-const CreditsEndpoint = "https://relay.vertexlab.io/api/v1/credits"
+const (
+	DVMEndpoint     = "https://relay.vertexlab.io/api/v1/dvms"
+	CreditsEndpoint = "https://relay.vertexlab.io/api/v1/credits"
+)
 
 const (
 	KindVerifyReputation = 5312
@@ -26,6 +28,7 @@ const (
 	KindRankProfiles     = 5314
 	KindSearchProfiles   = 5315
 	KindDVMError         = 7000
+	KindCredits          = 22243
 )
 
 // Filter is responsible for allowing based on the reputation of a pubkey.
@@ -45,7 +48,7 @@ func NewFilter(c Config) Filter {
 	}
 }
 
-type Response struct {
+type ProfileResponse struct {
 	Pubkey    string  `json:"pubkey"`
 	Rank      float64 `json:"rank"`
 	Follows   int     `json:"follows"`
@@ -88,16 +91,16 @@ func (f Filter) Allow(ctx context.Context, pubkey string) (bool, error) {
 		return false, fmt.Errorf("vertex.Filter.Allow: %w", err)
 	}
 
-	var ranks []Response
-	if err := json.Unmarshal([]byte(response.Content), &ranks); err != nil {
+	var profiles []ProfileResponse
+	if err := json.Unmarshal([]byte(response.Content), &profiles); err != nil {
 		return false, fmt.Errorf("vertex.Filter: failed to unmarshal the response event content: %w", err)
 	}
 
-	if len(ranks) == 0 {
+	if len(profiles) == 0 {
 		return false, fmt.Errorf("vertex.Filter: received an empty response")
 	}
 
-	target := ranks[0]
+	target := profiles[0]
 	if target.Pubkey != pubkey {
 		return false, fmt.Errorf("vertex.Filter: received a response for a different pubkey: expected %s, got %s", pubkey, target.Pubkey)
 	}
@@ -165,6 +168,10 @@ func (f Filter) CheckCredits(ctx context.Context) (CreditResponse, error) {
 
 // parseCredits parses the credits and lastRequest tags from the credits endpoint response event.
 func parseCredits(e nostr.Event) (CreditResponse, error) {
+	if e.Kind != KindCredits {
+		return CreditResponse{}, fmt.Errorf("expected kind %d, got %d", KindCredits, e.Kind)
+	}
+
 	creditsTag := e.Tags.Find("credits")
 	if creditsTag == nil {
 		return CreditResponse{}, fmt.Errorf("credits tag missing from response")
@@ -219,7 +226,7 @@ func (f Filter) DVM(ctx context.Context, payload nostr.Event) (nostr.Event, erro
 	}
 
 	request, err := http.NewRequestWithContext(
-		ctx, http.MethodPost, Endpoint, bytes.NewReader(body),
+		ctx, http.MethodPost, DVMEndpoint, bytes.NewReader(body),
 	)
 	if err != nil {
 		return nostr.Event{}, fmt.Errorf("failed to create the API request: %w", err)

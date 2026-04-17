@@ -1,3 +1,4 @@
+// Package client provides a client for the defender API.
 package client
 
 import (

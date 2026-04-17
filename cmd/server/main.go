@@ -35,6 +35,8 @@ func main() {
 	defer db.Close()
 
 	vertex := vertex.NewClient(config.Vertex)
+	go vertex.WatchCredits(ctx)
+
 	repo := repo.NewFetcher(config.Repo)
 
 	server := server.New(config, db, vertex, repo)

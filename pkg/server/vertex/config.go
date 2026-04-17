@@ -15,8 +15,14 @@ type Config struct {
 	// The secret key to use for signing requests to the Vertex DVM.
 	SecretKey string `env:"VERTEX_SECRET_KEY"`
 
-	// Timeout is the maximum time to wait for a response from Vertex. Default is 10 seconds.
-	Timeout time.Duration `env:"VERTEX_REQUEST_TIMEOUT"`
+	// RequestTimeout is the maximum time to wait for a response from Vertex. Default is 10 seconds.
+	RequestTimeout time.Duration `env:"VERTEX_REQUEST_TIMEOUT"`
+
+	// CreditsPollInterval is the interval at which to poll for credits. Default is 1 hour.
+	CreditsPollInterval time.Duration `env:"VERTEX_CREDITS_POLL_INTERVAL"`
+
+	// CreditsLogThreshold is the threshold below which a credit warning will be logged. Default is 500.
+	CreditsLogThreshold int64 `env:"VERTEX_CREDITS_LOG_THRESHOLD"`
 
 	// CacheExpiration time for ranks in the cache. Default is 24 hours.
 	CacheExpiration time.Duration `env:"VERTEX_CACHE_EXPIRATION"`
@@ -48,10 +54,12 @@ const (
 
 func NewConfig() Config {
 	return Config{
-		Algorithm:       Algorithm{Sort: SortGlobal, Threshold: 0.000005},
-		Timeout:         10 * time.Second,
-		CacheExpiration: 24 * time.Hour,
-		CacheSize:       100_000,
+		Algorithm:           Algorithm{Sort: SortGlobal, Threshold: 0.000005},
+		RequestTimeout:      10 * time.Second,
+		CreditsPollInterval: 1 * time.Hour,
+		CreditsLogThreshold: 500,
+		CacheExpiration:     24 * time.Hour,
+		CacheSize:           100_000,
 	}
 }
 
@@ -67,8 +75,18 @@ func (c Config) Validate() error {
 		return errors.New("secret key is not a valid 32 byte hex string")
 	}
 
-	if c.CacheExpiration < time.Second {
-		return errors.New("cache expiration must be greater than 1 second")
+	if c.RequestTimeout < time.Second {
+		return errors.New("timeout must be greater than 1 second to function reliably")
+	}
+	if c.CreditsPollInterval < time.Minute {
+		return errors.New("credits poll interval must be greater than 1 minute, otherwise it's too frequent")
+	}
+	if c.CreditsLogThreshold < 0 {
+		return errors.New("credits log threshold must be greater than 0")
+	}
+
+	if c.CacheExpiration < time.Minute {
+		return errors.New("cache expiration must be greater than 1 minute, or it's ineffective")
 	}
 	if c.CacheSize <= 0 {
 		return errors.New("cache size must be greater than 0")
@@ -117,6 +135,8 @@ func (c Config) String() string {
 	return fmt.Sprintf("Vertex:\n"+
 		"\tSecret Key: %s\n"+
 		"\tRequest Timeout: %v\n"+
+		"\tCredits Poll Interval: %v\n"+
+		"\tCredits Log Threshold: %d\n"+
 		"\tCache Expiration: %v\n"+
 		"\tCache Size: %d\n"+
 		"\tAlgorithm:\n"+
@@ -124,8 +144,11 @@ func (c Config) String() string {
 		"\t\tSort: %s\n"+
 		"\t\tThreshold: %f\n",
 		sk,
-		c.Timeout,
-		c.CacheExpiration, c.CacheSize,
+		c.RequestTimeout,
+		c.CreditsPollInterval,
+		c.CreditsLogThreshold,
+		c.CacheExpiration,
+		c.CacheSize,
 		c.Algorithm.Source,
 		c.Algorithm.Sort,
 		c.Algorithm.Threshold,

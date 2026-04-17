@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -43,7 +44,7 @@ type Client struct {
 // NewClient creates a new Client with the given config.
 func NewClient(c Config) Client {
 	return Client{
-		http:   &http.Client{Timeout: c.Timeout},
+		http:   &http.Client{Timeout: c.RequestTimeout},
 		cache:  expirable.NewLRU[string, float64](c.CacheSize, nil, c.CacheExpiration),
 		config: c,
 	}
@@ -94,16 +95,16 @@ func (c Client) Allow(ctx context.Context, pubkey string) (bool, error) {
 
 	var profiles []ProfileResponse
 	if err := json.Unmarshal([]byte(response.Content), &profiles); err != nil {
-		return false, fmt.Errorf("vertex.Client: failed to unmarshal the response event content: %w", err)
+		return false, fmt.Errorf("vertex: failed to unmarshal the response event content: %w", err)
 	}
 
 	if len(profiles) == 0 {
-		return false, fmt.Errorf("vertex.Client: received an empty response")
+		return false, fmt.Errorf("vertex: received an empty response")
 	}
 
 	target := profiles[0]
 	if target.Pubkey != pubkey {
-		return false, fmt.Errorf("vertex.Client: received a response for a different pubkey: expected %s, got %s", pubkey, target.Pubkey)
+		return false, fmt.Errorf("vertex: received a response for a different pubkey: expected %s, got %s", pubkey, target.Pubkey)
 	}
 	if target.Leak != nil {
 		// a leaked key is by definition not trustworthy. We cache it to avoid repeated lookups.
@@ -113,6 +114,39 @@ func (c Client) Allow(ctx context.Context, pubkey string) (bool, error) {
 
 	c.cache.Add(target.Pubkey, target.Rank)
 	return target.Rank >= c.config.Algorithm.Threshold, nil
+}
+
+// WatchCredits is a blocking operation that polls the Vertex API for credits at the configured interval,
+// and logs a warning if the credits drop below the configured threshold.
+// It runs until the context is canceled.
+func (c Client) WatchCredits(ctx context.Context) {
+	logCredits := func() {
+		credits, err := c.CheckCredits(ctx)
+		if err != nil {
+			slog.Error("vertex.WatchCredits failed", "error", err)
+			return
+		}
+
+		if credits.Credits < c.config.CreditsLogThreshold {
+			slog.Warn("vertex.WatchCredits: credits below threshold", "credits", credits.Credits, "lastRequest", credits.LastRequest)
+		} else {
+			slog.Debug("vertex.WatchCredits", "credits", credits.Credits, "lastRequest", credits.LastRequest)
+		}
+	}
+
+	logCredits()
+
+	ticker := time.NewTicker(c.config.CreditsPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			logCredits()
+		}
+	}
 }
 
 // CreditResponse holds the credits and last request time returned by the Vertex API.
@@ -130,39 +164,39 @@ func (c CreditResponse) String() string {
 func (c Client) CheckCredits(ctx context.Context) (CreditResponse, error) {
 	auth, err := c.nip98Auth(CreditsEndpoint, http.MethodGet)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: %w", err)
 	}
 
 	b, err := json.Marshal(auth)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to marshal NIP-98 auth event: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: failed to marshal NIP-98 auth event: %w", err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, CreditsEndpoint, nil)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to create request: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: failed to create request: %w", err)
 	}
 	request.Header.Set("Authorization", "Nostr "+base64.RawURLEncoding.EncodeToString(b))
 
 	response, err := c.http.Do(request)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to send request: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: failed to send request: %w", err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: unexpected status code: %d, body: %s", response.StatusCode, string(body))
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: unexpected status code: %d, body: %s", response.StatusCode, string(body))
 	}
 
 	var result nostr.Event
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to decode response: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: failed to decode response: %w", err)
 	}
 
 	credits, err := parseCredits(result)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.CheckCredits: %w", err)
 	}
 	return credits, nil
 }

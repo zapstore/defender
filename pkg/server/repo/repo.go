@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/zapstore/defender/pkg/models"
 	"gopkg.in/yaml.v3"
 )
@@ -113,7 +115,8 @@ type zapstoreYAML struct {
 	Pubkey string `yaml:"pubkey"`
 }
 
-// fetchPubkey downloads zapstore.yaml from rawURL and returns the pubkey as it appears in the file, no validation.
+// fetchPubkey downloads zapstore.yaml from rawURL and returns the hex-encoded pubkey.
+// It supports nip19 conversion.
 func (f *Fetcher) fetchPubkey(ctx context.Context, repo Parsed) (string, error) {
 	url := rawURL(repo)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -142,6 +145,18 @@ func (f *Fetcher) fetchPubkey(ctx context.Context, repo Parsed) (string, error) 
 	var z zapstoreYAML
 	if err := yaml.NewDecoder(res.Body).Decode(&z); err != nil {
 		return "", fmt.Errorf("failed to decode zapstore.yaml: %w", err)
+	}
+
+	if nostr.IsValidPublicKey(z.Pubkey) {
+		return z.Pubkey, nil
+	}
+
+	if strings.HasPrefix(z.Pubkey, "npub1") {
+		_, data, err := nip19.Decode(z.Pubkey)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode npub: %w", err)
+		}
+		return data.(string), nil
 	}
 	return z.Pubkey, nil
 }

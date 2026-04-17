@@ -157,7 +157,6 @@ func (s *T) checkAppRepo(ctx context.Context, e *nostr.Event) *models.CheckRespo
 
 	pubkey, err := s.allowRepo(ctx, repo)
 	if err != nil {
-		slog.Error("checkAppRepo: did not allow repo", "error", err)
 		return nil
 	}
 
@@ -180,6 +179,7 @@ func (s *T) allowRepo(ctx context.Context, repo repo.Parsed) (pubkey string, err
 	// if the repo platform entity is blocked, this strategy does not apply
 	blocked, err := s.db.IsBlocked(ctx, repo.Entity)
 	if err != nil {
+		slog.Error("allowRepo: failed to check if repo entity is blocked", "error", err)
 		return "", err
 	}
 	if blocked {
@@ -201,6 +201,7 @@ func (s *T) allowRepo(ctx context.Context, repo repo.Parsed) (pubkey string, err
 	// if the pubkey is blocked, this strategy does not apply
 	blocked, err = s.db.IsBlocked(ctx, nostrEntity)
 	if err != nil {
+		slog.Error("allowRepo: failed to check if pubkey is blocked", "error", err)
 		return "", err
 	}
 	if blocked {
@@ -217,6 +218,7 @@ func (s *T) allowRepo(ctx context.Context, repo repo.Parsed) (pubkey string, err
 	}
 
 	if err := s.db.SetPolicy(ctx, policy); err != nil {
+		slog.Error("allowRepo: failed to set policy", "error", err)
 		return "", err
 	}
 	return pubkey, nil

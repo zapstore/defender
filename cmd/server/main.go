@@ -34,7 +34,7 @@ func main() {
 	}
 	defer db.Close()
 
-	vertex := vertex.NewFilter(config.Vertex)
+	vertex := vertex.NewClient(config.Vertex)
 	repo := repo.NewFetcher(config.Repo)
 
 	server := server.New(config, db, vertex, repo)

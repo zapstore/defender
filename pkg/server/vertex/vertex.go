@@ -1,5 +1,6 @@
-// The vertex package exposes a configurable [Filter] struct that allows or rejects a pubkey
-// based on its reputation. It maintains a LRU with configurable size and TTL for caching.
+// The vertex package exposes a configurable [Client] struct whose fundamental responsability
+// is to allow or reject a pubkey based on its reputation.
+// It maintains a LRU with configurable size and TTL for caching.
 package vertex
 
 import (
@@ -31,17 +32,17 @@ const (
 	KindCredits          = 22243
 )
 
-// Filter is responsible for allowing based on the reputation of a pubkey.
+// Client is responsible for allowing based on the reputation of a pubkey.
 // It stores ranks in a LRU cache with size and time to live specified in the config.
-type Filter struct {
+type Client struct {
 	http   *http.Client
 	cache  *expirable.LRU[string, float64]
 	config Config
 }
 
-// NewFilter creates a new Filter with the given config.
-func NewFilter(c Config) Filter {
-	return Filter{
+// NewClient creates a new Client with the given config.
+func NewClient(c Config) Client {
+	return Client{
 		http:   &http.Client{Timeout: c.Timeout},
 		cache:  expirable.NewLRU[string, float64](c.CacheSize, nil, c.CacheExpiration),
 		config: c,
@@ -66,13 +67,13 @@ type Leak struct {
 
 // Allow returns true if the pubkey is considered trustworthy, otherwise false.
 // It returns an error if the request to Vertex fails.
-func (f Filter) Allow(ctx context.Context, pubkey string) (bool, error) {
-	if f.config.Algorithm.Threshold <= 0 {
+func (c Client) Allow(ctx context.Context, pubkey string) (bool, error) {
+	if c.config.Algorithm.Threshold <= 0 {
 		return true, nil
 	}
 
-	if rank, ok := f.cache.Get(pubkey); ok {
-		return rank >= f.config.Algorithm.Threshold, nil
+	if rank, ok := c.cache.Get(pubkey); ok {
+		return rank >= c.config.Algorithm.Threshold, nil
 	}
 
 	payload := nostr.Event{
@@ -80,38 +81,38 @@ func (f Filter) Allow(ctx context.Context, pubkey string) (bool, error) {
 		CreatedAt: nostr.Now(),
 		Tags: nostr.Tags{
 			{"param", "target", pubkey},
-			{"param", "sort", string(f.config.Algorithm.Sort)},
-			{"param", "source", f.config.Algorithm.Source},
+			{"param", "sort", string(c.config.Algorithm.Sort)},
+			{"param", "source", c.config.Algorithm.Source},
 			{"param", "limit", "0"}, // don't need top followers
 		},
 	}
 
-	response, err := f.DVM(ctx, payload)
+	response, err := c.DVM(ctx, payload)
 	if err != nil {
-		return false, fmt.Errorf("vertex.Filter.Allow: %w", err)
+		return false, fmt.Errorf("vertex.Client.Allow: %w", err)
 	}
 
 	var profiles []ProfileResponse
 	if err := json.Unmarshal([]byte(response.Content), &profiles); err != nil {
-		return false, fmt.Errorf("vertex.Filter: failed to unmarshal the response event content: %w", err)
+		return false, fmt.Errorf("vertex.Client: failed to unmarshal the response event content: %w", err)
 	}
 
 	if len(profiles) == 0 {
-		return false, fmt.Errorf("vertex.Filter: received an empty response")
+		return false, fmt.Errorf("vertex.Client: received an empty response")
 	}
 
 	target := profiles[0]
 	if target.Pubkey != pubkey {
-		return false, fmt.Errorf("vertex.Filter: received a response for a different pubkey: expected %s, got %s", pubkey, target.Pubkey)
+		return false, fmt.Errorf("vertex.Client: received a response for a different pubkey: expected %s, got %s", pubkey, target.Pubkey)
 	}
 	if target.Leak != nil {
 		// a leaked key is by definition not trustworthy. We cache it to avoid repeated lookups.
-		f.cache.Add(target.Pubkey, -1)
+		c.cache.Add(target.Pubkey, -1)
 		return false, nil
 	}
 
-	f.cache.Add(target.Pubkey, target.Rank)
-	return target.Rank >= f.config.Algorithm.Threshold, nil
+	c.cache.Add(target.Pubkey, target.Rank)
+	return target.Rank >= c.config.Algorithm.Threshold, nil
 }
 
 // CreditResponse holds the credits and last request time returned by the Vertex API.
@@ -126,42 +127,42 @@ func (c CreditResponse) String() string {
 
 // CheckCredits returns the number of credits remaining for the pubkey associated with the configured secret key.
 // It uses NIP-98 HTTP authentication to prove ownership of the pubkey to the Vertex API.
-func (f Filter) CheckCredits(ctx context.Context) (CreditResponse, error) {
-	auth, err := f.nip98Auth(CreditsEndpoint, http.MethodGet)
+func (c Client) CheckCredits(ctx context.Context) (CreditResponse, error) {
+	auth, err := c.nip98Auth(CreditsEndpoint, http.MethodGet)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: %w", err)
 	}
 
 	b, err := json.Marshal(auth)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: failed to marshal NIP-98 auth event: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to marshal NIP-98 auth event: %w", err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, CreditsEndpoint, nil)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: failed to create request: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to create request: %w", err)
 	}
 	request.Header.Set("Authorization", "Nostr "+base64.RawURLEncoding.EncodeToString(b))
 
-	response, err := f.http.Do(request)
+	response, err := c.http.Do(request)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: failed to send request: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to send request: %w", err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: unexpected status code: %d, body: %s", response.StatusCode, string(body))
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: unexpected status code: %d, body: %s", response.StatusCode, string(body))
 	}
 
 	var result nostr.Event
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: failed to decode response: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: failed to decode response: %w", err)
 	}
 
 	credits, err := parseCredits(result)
 	if err != nil {
-		return CreditResponse{}, fmt.Errorf("vertex.Filter.CheckCredits: %w", err)
+		return CreditResponse{}, fmt.Errorf("vertex.Client.CheckCredits: %w", err)
 	}
 	return credits, nil
 }
@@ -198,7 +199,7 @@ func parseCredits(e nostr.Event) (CreditResponse, error) {
 	}, nil
 }
 
-func (f Filter) nip98Auth(endpoint, method string) (nostr.Event, error) {
+func (c Client) nip98Auth(endpoint, method string) (nostr.Event, error) {
 	auth := nostr.Event{
 		Kind:      nostr.KindHTTPAuth,
 		CreatedAt: nostr.Now(),
@@ -207,7 +208,7 @@ func (f Filter) nip98Auth(endpoint, method string) (nostr.Event, error) {
 			{"method", method},
 		},
 	}
-	if err := auth.Sign(f.config.SecretKey); err != nil {
+	if err := auth.Sign(c.config.SecretKey); err != nil {
 		return nostr.Event{}, fmt.Errorf("failed to sign NIP-98 auth event: %w", err)
 	}
 	return auth, nil
@@ -215,8 +216,8 @@ func (f Filter) nip98Auth(endpoint, method string) (nostr.Event, error) {
 
 // DVM makes an API call to the Vertex API /dvms endpoint, writing the specified nostr event into the body.
 // It returns the DVM response or an error if any. Kind 7000 are considered errors.
-func (f Filter) DVM(ctx context.Context, payload nostr.Event) (nostr.Event, error) {
-	if err := payload.Sign(f.config.SecretKey); err != nil {
+func (c Client) DVM(ctx context.Context, payload nostr.Event) (nostr.Event, error) {
+	if err := payload.Sign(c.config.SecretKey); err != nil {
 		return nostr.Event{}, fmt.Errorf("failed to sign the request: %w", err)
 	}
 
@@ -233,7 +234,7 @@ func (f Filter) DVM(ctx context.Context, payload nostr.Event) (nostr.Event, erro
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := f.http.Do(request)
+	response, err := c.http.Do(request)
 	if err != nil {
 		return nostr.Event{}, fmt.Errorf("failed to send the API request: %w", err)
 	}

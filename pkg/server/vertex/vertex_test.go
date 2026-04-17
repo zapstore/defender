@@ -71,13 +71,13 @@ func TestAllow(t *testing.T) {
 		},
 	}
 
-	filter := NewFilter(config)
+	client := NewClient(config)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			filter.config.Algorithm = test.algorithm
-			filter.cache.Purge() // clear the cache
+			client.config.Algorithm = test.algorithm
+			client.cache.Purge() // clear the cache
 
-			allow, err := filter.Allow(context.Background(), test.pubkey)
+			allow, err := client.Allow(context.Background(), test.pubkey)
 			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}
@@ -89,8 +89,8 @@ func TestAllow(t *testing.T) {
 }
 
 func TestCheckCredits(t *testing.T) {
-	filter := NewFilter(config)
-	res, err := filter.CheckCredits(context.Background())
+	client := NewClient(config)
+	res, err := client.CheckCredits(context.Background())
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}

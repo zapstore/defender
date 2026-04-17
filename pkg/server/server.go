@@ -18,12 +18,12 @@ type T struct {
 	mux    *http.ServeMux
 	db     sqlite.DB
 	repo   *repo.Fetcher
-	vertex vertex.Filter
+	vertex vertex.Client
 	config Config
 }
 
 // New returns a new server instance with the given configuration and dependencies.
-func New(c Config, db sqlite.DB, vertex vertex.Filter, repo *repo.Fetcher) *T {
+func New(c Config, db sqlite.DB, vertex vertex.Client, repo *repo.Fetcher) *T {
 	s := &T{
 		mux:    http.NewServeMux(),
 		db:     db,

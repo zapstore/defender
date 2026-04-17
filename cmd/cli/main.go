@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/zapstore/defender/pkg/models"
 	"github.com/zapstore/defender/pkg/server/sqlite"

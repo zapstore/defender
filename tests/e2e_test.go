@@ -38,6 +38,19 @@ func init() {
 	}
 }
 
+func TestHealth(t *testing.T) {
+	client, err := client.Default(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := client.Health(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(res)
+}
+
 func TestCheckEvent(t *testing.T) {
 	client, err := client.Default(addr)
 	if err != nil {

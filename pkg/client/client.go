@@ -54,6 +54,27 @@ func Default(url string) (T, error) {
 	}, nil
 }
 
+// Health calls the server "GET /v1/health" endpoint and returns the health response.
+func (c T) Health(ctx context.Context) (models.HealthResponse, error) {
+	endpoint := c.url + "/v1/health"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return models.HealthResponse{}, fmt.Errorf("failed to get health: %w", err)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return models.HealthResponse{}, fmt.Errorf("failed to get health: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var health models.HealthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		return models.HealthResponse{}, fmt.Errorf("failed to decode health response: %w", err)
+	}
+	return health, nil
+}
+
 // CheckEvent calls the server "POST /v1/events/check" endpoint with the provided event.
 func (c T) CheckEvent(ctx context.Context, event *nostr.Event) (models.CheckResponse, error) {
 	b, err := json.Marshal(event)

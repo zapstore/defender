@@ -1,4 +1,3 @@
-// Package models defines the core domain types shared across the server, client, and storage layers.
 package models
 
 import (
@@ -8,45 +7,6 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 )
-
-const (
-	KindProfile           = 0
-	KindDeletion          = 5
-	KindForumPost         = 11
-	KindComment           = 1111
-	KindZap               = 9735
-	KindCommunityCreation = 10222
-	KindIdentityProof     = 30509
-
-	KindApp     = 32267
-	KindRelease = 30063
-	KindAsset   = 3063
-)
-
-// HealthResponse is the response body for GET /v1/health.
-type HealthResponse struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	Uptime  string `json:"uptime"`
-}
-
-// Decision represents the decision made for an event in the check endpoint.
-type Decision string
-
-const (
-	DecisionAccept Decision = "accept"
-	DecisionReject Decision = "reject"
-)
-
-func (d Decision) IsValid() bool {
-	return d == DecisionAccept || d == DecisionReject
-}
-
-// CheckResponse represents the response to a /v1/events/check request.
-type CheckResponse struct {
-	Decision Decision `json:"decision"`
-	Reason   string   `json:"reason"`
-}
 
 // Platform represents the platform of a policy entity, e.g. "nostr", "github", "gitlab", "codeberg".
 type Platform string

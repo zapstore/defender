@@ -17,7 +17,7 @@ import (
 	"github.com/zapstore/defender/pkg/server/sqlite"
 )
 
-// Health handles GET /v1/health and returns the service status, version, and uptime.
+// Health handles GET /v1/health returning a [models.HealthResponse].
 func (s *T) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, models.HealthResponse{
 		Status:  "ok",
@@ -26,6 +26,7 @@ func (s *T) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// CheckEvent handles the /v1/events/check endpoint, returning a [models.CheckResponse].
 func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
 	event, err := parseEvent(r.Body)
@@ -43,7 +44,7 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 
 	response, err := s.checkEvent(ctx, event)
 	if err != nil {
-		slog.Error("CheckEvent: failed to check event", "err", err)
+		slog.Error("CheckEvent: failed to check event", "err", err, "id", event.ID)
 		writeJSON(w, http.StatusInternalServerError, models.CheckResponse{
 			Decision: models.DecisionReject,
 			Reason:   "internal error while checking event",
@@ -52,17 +53,18 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, response)
 
-	decision := sqlite.EventDecision{
-		CheckedAt: time.Now(),
-		EventID:   event.ID,
+	audit := sqlite.Audit{
+		Type:      sqlite.AuditEvent,
+		Hash:      event.ID,
 		Pubkey:    event.PubKey,
 		Decision:  response.Decision,
 		Reason:    response.Reason,
+		CheckedAt: time.Now().UTC(),
 	}
 
 	// use a background context because we want to record the decision, even if the client doesn't need it anymore.
-	if err := s.db.RecordDecision(context.Background(), decision); err != nil {
-		slog.Error("checkHandler: failed to record decision", "err", err)
+	if err := s.db.Record(context.Background(), audit); err != nil {
+		slog.Error("CheckEvent: failed to record check event audit", "err", err)
 	}
 }
 
@@ -231,6 +233,102 @@ func (s *T) allowRepo(ctx context.Context, repo repo.Parsed) (pubkey string, err
 		return "", err
 	}
 	return pubkey, nil
+}
+
+// CheckBlob handles the /v1/blobs/check endpoint, returning a [models.CheckResponse].
+func (s *T) CheckBlob(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
+	blob, err := parseBlob(r.Body)
+	if err != nil {
+		slog.Error("CheckBlob: invalid blob", "err", err)
+		writeJSON(w, http.StatusBadRequest, models.CheckResponse{
+			Decision: models.DecisionReject,
+			Reason:   err.Error(),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	response, err := s.checkBlob(ctx, blob)
+	if err != nil {
+		slog.Error("CheckBlob: failed to check blob", "err", err, "hash", blob.Hash)
+		writeJSON(w, http.StatusInternalServerError, models.CheckResponse{
+			Decision: models.DecisionReject,
+			Reason:   "internal error while checking blob",
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, response)
+
+	audit := sqlite.Audit{
+		Type:      sqlite.AuditBlob,
+		Hash:      blob.Hash.Hex(),
+		Pubkey:    blob.Pubkey,
+		Decision:  response.Decision,
+		Reason:    response.Reason,
+		CheckedAt: time.Now().UTC(),
+	}
+
+	// use a background context because we want to record the decision, even if the client doesn't need it anymore.
+	if err := s.db.Record(context.Background(), audit); err != nil {
+		slog.Error("CheckBlob: failed to record check blob audit", "err", err)
+	}
+}
+
+// parseBlob parses a blob metadata from the request body and validates it.
+func parseBlob(r io.Reader) (*models.BlobMeta, error) {
+	var blob models.BlobMeta
+	if err := json.NewDecoder(r).Decode(&blob); err != nil {
+		return nil, err
+	}
+
+	if err := blob.Validate(); err != nil {
+		return nil, err
+	}
+	return &blob, nil
+}
+
+func (s *T) checkBlob(ctx context.Context, blob *models.BlobMeta) (models.CheckResponse, error) {
+	entity := models.Entity{Platform: models.PlatformNostr, ID: blob.Pubkey}
+
+	policy, err := s.db.PolicyOf(ctx, entity)
+	if err != nil && !errors.Is(err, sqlite.ErrPolicyNotFound) {
+		return models.CheckResponse{}, err
+	}
+
+	if err == nil {
+		// a policy exists, so we use it
+		switch policy.Status {
+		case models.StatusBlocked:
+			return models.CheckResponse{
+				Decision: models.DecisionReject,
+				Reason:   fmt.Sprintf("pubkey is blocked: %s", policy.Reason),
+			}, nil
+		case models.StatusAllowed:
+			return models.CheckResponse{
+				Decision: models.DecisionAccept,
+				Reason:   fmt.Sprintf("pubkey is explicitly allowed: %s", policy.Reason),
+			}, nil
+		}
+	}
+
+	allowed, err := s.vertex.Allow(ctx, blob.Pubkey)
+	if err != nil {
+		return models.CheckResponse{}, err
+	}
+
+	if !allowed {
+		return models.CheckResponse{
+			Decision: models.DecisionReject,
+			Reason:   "pubkey does not meet the minimum reputation threshold",
+		}, nil
+	}
+	return models.CheckResponse{
+		Decision: models.DecisionAccept,
+		Reason:   "pubkey meets the minimum reputation threshold",
+	}, nil
 }
 
 func (s *T) ListPolicies(w http.ResponseWriter, r *http.Request) {

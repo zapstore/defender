@@ -115,7 +115,7 @@ func runAllow(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	fmt.Println("successfully allowed entity")
+	fmt.Println("successfully added allow policy")
 	fmt.Printf("\tentity: %q\n", entity)
 	fmt.Printf("\treason: %q\n", reason)
 }
@@ -151,7 +151,7 @@ func runBlock(ctx context.Context, db sqlite.DB) {
 		return
 	}
 
-	fmt.Println("successfully blocked entity")
+	fmt.Println("successfully added block policy")
 	fmt.Printf("\tentity: %q\n", entity)
 	fmt.Printf("\treason: %q\n", reason)
 }
@@ -175,7 +175,7 @@ func runRemove(ctx context.Context, db sqlite.DB) {
 	}
 
 	if deleted {
-		fmt.Println("successfully removed entity")
+		fmt.Println("successfully removed policy")
 		fmt.Printf("\tentity: %q\n", entity)
 	} else {
 		fmt.Println("entity not found")

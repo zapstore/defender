@@ -72,6 +72,22 @@ By default the CLI uses `defender.db` in the current directory. Override with th
 
 ## API
 
+### `GET /v1/health`
+
+Returns the service status, running version, and uptime.
+
+**Response**:
+
+```jsonc
+{
+  "status": "ok",
+  "version": "v1.2.3",
+  "uptime": "3h14m22s"
+}
+```
+
+---
+
 ### `POST /v1/events/check`
 
 Evaluates a Nostr event and returns an admission decision.
@@ -87,6 +103,32 @@ Evaluates a Nostr event and returns an admission decision.
   "tags": [],
   "content": "...",
   "sig": "..."
+}
+```
+
+**Response**:
+
+```jsonc
+{
+  "decision": "accept" | "reject",
+  "reason": "human readable explanation"
+}
+```
+
+---
+
+### `POST /v1/blobs/check`
+
+Evaluates a Blossom blob upload and returns an admission decision.
+
+**Request body**:
+
+```jsonc
+{
+  "pubkey": "...",
+  "hash": "...",
+  "size": 1234,
+  "type": "image/png"
 }
 ```
 

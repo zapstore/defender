@@ -18,7 +18,7 @@ import (
 
 var (
 	ctx  = context.Background()
-	addr = "http://localhost:8080"
+	addr = "localhost:8080"
 	pip  = "f683e87035f7ad4f44e0b98cfbd9537e16455a92cd38cefc4cb31db7557f5ef2"
 	gigi = "6e468422dfb74a5738702a8823b9b28168abab8655faacb6853cd0ee15deee93"
 

@@ -249,12 +249,18 @@ func normalizeURL(u string) (string, error) {
 	if len(u) == 0 {
 		return "", fmt.Errorf("url is empty")
 	}
+
+	u = strings.ToLower(u)
+	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		u = "http://" + u
+	}
+
 	parsed, err := url.Parse(u)
 	if err != nil {
 		return "", fmt.Errorf("url is invalid: %w", err)
 	}
-	if parsed.Scheme == "" {
-		return "", fmt.Errorf("url must have a scheme")
+	if parsed.Host == "" {
+		return "", fmt.Errorf("url must have a host")
 	}
 	return strings.TrimSuffix(u, "/"), nil
 }

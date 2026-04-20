@@ -7,11 +7,15 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/zapstore/defender/pkg/server/repo"
 	"github.com/zapstore/defender/pkg/server/sqlite"
 	"github.com/zapstore/defender/pkg/server/vertex"
 )
+
+// Version is set at build time via -ldflags -X.
+var Version = "dev"
 
 // T is the main server type. It can be started with Start.
 type T struct {
@@ -20,6 +24,9 @@ type T struct {
 	repo   *repo.Fetcher
 	vertex vertex.Client
 	config Config
+
+	// info for the health endpoint
+	started time.Time
 }
 
 // New returns a new server instance with the given configuration and dependencies.
@@ -32,6 +39,7 @@ func New(c Config, db sqlite.DB, vertex vertex.Client, repo *repo.Fetcher) *T {
 		config: c,
 	}
 
+	s.mux.HandleFunc("GET /v1/health", s.Health)
 	s.mux.HandleFunc("POST /v1/events/check", s.CheckEvent)
 	s.mux.HandleFunc("GET /v1/policies", s.ListPolicies)
 	s.mux.HandleFunc("GET /v1/policies/{platform}/{id}", s.GetPolicy)
@@ -43,6 +51,7 @@ func New(c Config, db sqlite.DB, vertex vertex.Client, repo *repo.Fetcher) *T {
 // Start runs the HTTP server and blocks until the context is cancelled, then performs a graceful shutdown.
 // It returns a non-nil error if the HTTP server fails.
 func (s *T) Start(ctx context.Context) error {
+	s.started = time.Now()
 	server := &http.Server{
 		Addr:         s.config.HTTP.Addr,
 		Handler:      s.mux,

@@ -23,6 +23,13 @@ const (
 	KindAsset   = 3063
 )
 
+// HealthResponse is the response body for GET /v1/health.
+type HealthResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  string `json:"uptime"`
+}
+
 // Decision represents the decision made for an event in the check endpoint.
 type Decision string
 

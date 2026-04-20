@@ -35,7 +35,7 @@ defender defender-cli:
 		CMD=./cmd/cli; \
 	fi; \
 	CGO_ENABLED=1 \
-		go build -ldflags "$(LDFLAGS)" \
+		go build -ldflags "$(LDFLAGS) -X github.com/zapstore/defender/pkg/server.Version=$(TAG)" \
 		-o $(BUILD_DIR)/$@-$(TAG) $$CMD; \
 	echo "Built $@ from commit $$(git rev-parse HEAD), $$(git log -1 --pretty=%s)"
 

@@ -17,6 +17,15 @@ import (
 	"github.com/zapstore/defender/pkg/server/sqlite"
 )
 
+// Health handles GET /v1/health and returns the service status, version, and uptime.
+func (s *T) Health(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, models.HealthResponse{
+		Status:  "ok",
+		Version: Version,
+		Uptime:  time.Since(s.started).Round(time.Second).String(),
+	})
+}
+
 func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, s.config.HTTP.MaxBodyBytes)
 	event, err := parseEvent(r.Body)

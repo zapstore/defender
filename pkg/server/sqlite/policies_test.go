@@ -18,7 +18,7 @@ var (
 			Platform: models.PlatformGithub,
 		},
 		Status:    models.StatusAllowed,
-		CreatedAt: time.Unix(time.Now().Unix(), 0),
+		CreatedAt: time.Unix(time.Now().Unix(), 0).UTC(),
 		AddedBy:   "cli",
 		Reason:    "trusted developer",
 	}
@@ -28,7 +28,7 @@ var (
 			Platform: models.PlatformNostr,
 		},
 		Status:    models.StatusBlocked,
-		CreatedAt: time.Unix(time.Now().Unix(), 0),
+		CreatedAt: time.Unix(time.Now().Unix(), 0).UTC(),
 		AddedBy:   "system",
 		Reason:    "spam",
 	}
@@ -76,7 +76,7 @@ func TestPolicies(t *testing.T) {
 
 	expected := []models.Policy{policyAllowed, policyBlocked}
 	if !reflect.DeepEqual(all, expected) {
-		t.Fatalf("expected 2 policies, got %d", len(all))
+		t.Fatalf("expected policies %v, got %v", expected, all)
 	}
 
 	allowed, err := db.Policies(ctx, "", models.StatusAllowed)

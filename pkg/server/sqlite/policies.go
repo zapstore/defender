@@ -48,7 +48,7 @@ func (db DB) PolicyOf(ctx context.Context, entity models.Entity) (models.Policy,
 	if err != nil {
 		return models.Policy{}, err
 	}
-	p.CreatedAt = time.Unix(createdAt, 0)
+	p.CreatedAt = time.Unix(createdAt, 0).UTC()
 	return p, nil
 }
 

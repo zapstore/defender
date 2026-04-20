@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/pippellia-btc/blossom"
 	"github.com/zapstore/defender/pkg/client"
 	"github.com/zapstore/defender/pkg/models"
 )
@@ -29,6 +30,15 @@ var (
 		CreatedAt: 1776346594,
 		Tags:      []nostr.Tag{},
 		Sig:       "c7b7a6b2b84a3980d2645b808440ffac15d8263b226dbbd66797c8bb525140d188784e7a5190f99f2f95d8aaa5187864efec062b9c1d78595d72dd723f0c34e1",
+	}
+
+	hash = blossom.ComputeHash([]byte("this is a blob innit"))
+
+	blob = models.BlobMeta{
+		Pubkey: "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+		Hash:   hash,
+		Size:   int64(len("this is a blob innit")),
+		Type:   "text/plain",
 	}
 )
 
@@ -58,6 +68,23 @@ func TestCheckEvent(t *testing.T) {
 	}
 
 	res, err := client.CheckEvent(ctx, appEvent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(res)
+
+	if res.Decision != models.DecisionReject {
+		t.Fatalf("expected decision to be reject, got %s", res.Decision)
+	}
+}
+
+func TestCheckBlob(t *testing.T) {
+	client, err := client.Default(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := client.CheckBlob(ctx, blob)
 	if err != nil {
 		t.Fatal(err)
 	}

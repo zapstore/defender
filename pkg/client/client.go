@@ -102,6 +102,32 @@ func (c T) CheckEvent(ctx context.Context, event *nostr.Event) (models.CheckResp
 	return check, nil
 }
 
+func (c T) CheckBlob(ctx context.Context, blob models.BlobMeta) (models.CheckResponse, error) {
+	b, err := json.Marshal(blob)
+	if err != nil {
+		return models.CheckResponse{}, fmt.Errorf("failed to check blob: %w", err)
+	}
+
+	endpoint := c.url + "/v1/blobs/check"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(b))
+	if err != nil {
+		return models.CheckResponse{}, fmt.Errorf("failed to check blob: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return models.CheckResponse{}, fmt.Errorf("failed to check blob: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var check models.CheckResponse
+	if err := json.NewDecoder(resp.Body).Decode(&check); err != nil {
+		return models.CheckResponse{}, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return check, nil
+}
+
 // ListPolicies calls the server "GET /v1/policies" endpoint.
 // If the platform is not empty, it filters the results by platform.
 // If the status is not empty, it filters the results by status.

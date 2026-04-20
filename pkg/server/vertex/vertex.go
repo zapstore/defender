@@ -120,21 +120,13 @@ func (c Client) Allow(ctx context.Context, pubkey string) (bool, error) {
 // and logs a warning if the credits drop below the configured threshold.
 // It runs until the context is canceled.
 func (c Client) WatchCredits(ctx context.Context) {
-	logCredits := func() {
-		credits, err := c.CheckCredits(ctx)
-		if err != nil {
-			slog.Error("vertex.WatchCredits failed", "error", err)
-			return
-		}
-
-		if credits.Credits < c.config.CreditsLogThreshold {
-			slog.Warn("vertex.WatchCredits: credits below threshold", "credits", credits.Credits, "lastRequest", credits.LastRequest)
-		} else {
-			slog.Debug("vertex.WatchCredits", "credits", credits.Credits, "lastRequest", credits.LastRequest)
-		}
+	credits, err := c.CheckCredits(ctx)
+	if err != nil {
+		slog.Error("vertex.WatchCredits failed", "error", err)
+		return
 	}
-
-	logCredits()
+	slog.Info("vertex.WatchCredits",
+		"credits", credits.Credits, "lastRequest", credits.LastRequest.UTC().Round(time.Second))
 
 	ticker := time.NewTicker(c.config.CreditsPollInterval)
 	defer ticker.Stop()
@@ -144,7 +136,19 @@ func (c Client) WatchCredits(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			logCredits()
+			credits, err := c.CheckCredits(ctx)
+			if err != nil {
+				slog.Error("vertex.WatchCredits failed", "error", err)
+				return
+			}
+
+			if credits.Credits < c.config.CreditsLogThreshold {
+				slog.Warn("vertex.WatchCredits: credits below threshold",
+					"credits", credits.Credits, "lastRequest", credits.LastRequest.UTC().Round(time.Second))
+			} else {
+				slog.Debug("vertex.WatchCredits",
+					"credits", credits.Credits, "lastRequest", credits.LastRequest.UTC().Round(time.Second))
+			}
 		}
 	}
 }

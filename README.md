@@ -37,16 +37,32 @@ The defender owns everything that requires external knowledge, accumulated histo
 - All decisions must be logged for auditability.
 - The system should evolve without requiring changes to the relay core.
 
-## Running
+## Developing
 
 Make a `.env` file, customize it to your needs and fill in the required variables.
 You can take a look at the `.env.example` for the list of supported variables with their default values.
 
-```bash
-go run ./cmd
-```
+To run the server or CLI locally without building a binary, `cd` into the relevant command directory and use `go run .`:
 
 The server listens on `localhost:8080` by default.
+
+## Building
+
+Binaries are built using the Makefile. The build always targets a specific git tag. The script checks out that tag before compiling, so the binary is guaranteed to reflect a clean, tagged commit.
+
+```bash
+make defender      # builds the server binary
+make defender-cli  # builds the CLI binary
+make all           # builds both
+```
+
+By default, the latest tag is resolved automatically via `git describe`. You can also target a specific tag explicitly:
+
+```bash
+make defender TAG=v1.2.3
+```
+
+Built binaries are placed in the `build/` directory and named after the tag, e.g. `build/defender-v1.2.3`. The git tag is also embedded into the binary at compile time and exposed via the `GET /v1/health` endpoint.
 
 ## CLI
 

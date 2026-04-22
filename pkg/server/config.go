@@ -36,7 +36,6 @@ func NewConfig() Config {
 			models.KindRelease,
 			models.KindAsset,
 			models.KindCommunityCreation,
-			models.KindIdentityProof,
 		},
 	}
 }

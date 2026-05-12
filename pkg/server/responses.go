@@ -62,8 +62,11 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 		CheckedAt: time.Now().UTC(),
 	}
 
-	// use a background context because we want to record the decision, even if the client doesn't need it anymore.
-	if err := s.db.Record(context.Background(), audit); err != nil {
+	// use a fresh context to record the decision, even if the client disconnects.
+	recordCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.db.Record(recordCtx, audit); err != nil {
 		slog.Error("CheckEvent: failed to record check event audit", "err", err)
 	}
 }

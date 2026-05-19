@@ -146,12 +146,12 @@ func (c T) ListPolicies(ctx context.Context, platform models.Platform, status mo
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pubkey policies: %w", err)
+		return nil, fmt.Errorf("failed to get policies: %w", err)
 	}
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pubkey policies: %w", err)
+		return nil, fmt.Errorf("failed to get policies: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -160,24 +160,24 @@ func (c T) ListPolicies(ctx context.Context, platform models.Platform, status mo
 		return nil, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
 	}
 
-	var pubkeys []models.Policy
-	if err := json.NewDecoder(res.Body).Decode(&pubkeys); err != nil {
+	var policies []models.Policy
+	if err := json.NewDecoder(res.Body).Decode(&policies); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	return pubkeys, nil
+	return policies, nil
 }
 
-// GetPolicy calls the server "GET /v1/policies/:pubkey" endpoint.
+// GetPolicy calls the server "GET /v1/policies/{platform}/{id}" endpoint.
 func (c T) GetPolicy(ctx context.Context, entity models.Entity) (models.Policy, error) {
 	endpoint := fmt.Sprintf("%s/v1/policies/%s/%s", c.url, entity.Platform, entity.ID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return models.Policy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
+		return models.Policy{}, fmt.Errorf("failed to get policy: %w", err)
 	}
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return models.Policy{}, fmt.Errorf("failed to get pubkey policy: %w", err)
+		return models.Policy{}, fmt.Errorf("failed to get policy: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -196,7 +196,7 @@ func (c T) GetPolicy(ctx context.Context, entity models.Entity) (models.Policy, 
 	return policy, nil
 }
 
-// SetPolicy calls the server "PUT /v1/policies/:pubkey" endpoint.
+// SetPolicy calls the server "PUT /v1/policies/{platform}/{id}" endpoint.
 func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
 	endpoint := fmt.Sprintf("%s/v1/policies/%s/%s", c.url, policy.Entity.Platform, policy.Entity.ID)
 	body, err := json.Marshal(policy)
@@ -206,13 +206,13 @@ func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("failed to set pubkey policy: %w", err)
+		return fmt.Errorf("failed to set policy: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to set pubkey policy: %w", err)
+		return fmt.Errorf("failed to set policy: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -223,18 +223,18 @@ func (c T) SetPolicy(ctx context.Context, policy models.Policy) error {
 	return nil
 }
 
-// DeletePolicy calls the server "DELETE /v1/policies/:pubkey" endpoint.
+// DeletePolicy calls the server "DELETE /v1/policies/{platform}/{id}" endpoint.
 func (c T) DeletePolicy(ctx context.Context, entity models.Entity) error {
 	endpoint := fmt.Sprintf("%s/v1/policies/%s/%s", c.url, entity.Platform, entity.ID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
-		return fmt.Errorf("failed to delete pubkey policy: %w", err)
+		return fmt.Errorf("failed to delete policy: %w", err)
 	}
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to delete pubkey policy: %w", err)
+		return fmt.Errorf("failed to delete policy: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -243,6 +243,40 @@ func (c T) DeletePolicy(ctx context.Context, entity models.Entity) error {
 		return fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
 	}
 	return nil
+}
+
+// ListAudits calls the server "GET /v1/audits" endpoint.
+// If limit is 0, the default limit of 50 will be used.
+func (c T) ListAudits(ctx context.Context, limit int) ([]models.Audit, error) {
+	l := 50
+	if limit > 0 {
+		l = limit
+	}
+
+	endpoint := c.url + "/v1/audits"
+	endpoint += fmt.Sprintf("?limit=%d", l)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get audits: %w", err)
+	}
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get audits: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("unexpected status %d: %s", res.StatusCode, body)
+	}
+
+	var audits []models.Audit
+	if err := json.NewDecoder(res.Body).Decode(&audits); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return audits, nil
 }
 
 func normalizeURL(u string) (string, error) {

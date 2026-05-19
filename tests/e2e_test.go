@@ -211,3 +211,19 @@ func TestDeletePolicy(t *testing.T) {
 		t.Fatalf("expected pubkey %s to be deleted from the list of all pubkeys", pip)
 	}
 }
+
+func TestListAudits(t *testing.T) {
+	client, err := client.Default(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	audits, err := client.ListAudits(ctx, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, a := range audits {
+		t.Logf("audit: %s", a)
+	}
+}

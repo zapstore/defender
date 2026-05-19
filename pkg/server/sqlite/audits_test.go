@@ -42,19 +42,22 @@ func TestAuditRoundtrip(t *testing.T) {
 		Pubkey:    "pubkey123",
 		Decision:  models.DecisionAccept,
 		Reason:    "pubkey meets the minimum reputation threshold",
-		CheckedAt: time.Unix(time.Now().Unix(), 0), // truncate to seconds to match DB precision
+		CheckedAt: time.Unix(time.Now().Unix(), 0).UTC(), // truncate to seconds to match DB precision
 	}
 
 	if err := db.Record(ctx, want); err != nil {
 		t.Fatalf("Record: %v", err)
 	}
 
-	got, err := auditByID(db, ctx, 1)
+	got, err := db.Audits(ctx, 1)
 	if err != nil {
-		t.Fatalf("decisionByID: %v", err)
+		t.Fatalf("Audits: %v", err)
 	}
 
-	if !reflect.DeepEqual(want, got) {
+	if len(got) != 1 {
+		t.Fatalf("expected 1 audit, got %d", len(got))
+	}
+	if !reflect.DeepEqual(want, got[0]) {
 		t.Errorf("decision mismatch:\n got  %+v\n want %+v", got, want)
 	}
 }

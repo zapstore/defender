@@ -101,7 +101,7 @@ func (p Policy) String() string {
 		"  Status: %s,\n"+
 		"  Reason: %s,\n"+
 		"  AddedBy: %s,\n"+
-		"  CreatedAt: %s\n"+
+		"  CreatedAt: %v\n"+
 		"}",
 		p.Entity.Platform, p.Entity.ID, p.Status, p.Reason, p.AddedBy, p.CreatedAt)
 }

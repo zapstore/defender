@@ -47,6 +47,8 @@ func New(c Config, db sqlite.DB, vertex vertex.Client, repo *repo.Fetcher) *T {
 	s.mux.HandleFunc("GET /v1/policies/{platform}/{id}", s.GetPolicy)
 	s.mux.HandleFunc("PUT /v1/policies/{platform}/{id}", s.SetPolicy)
 	s.mux.HandleFunc("DELETE /v1/policies/{platform}/{id}", s.DeletePolicy)
+
+	s.mux.HandleFunc("GET /v1/audits", s.ListAudits)
 	return s
 }
 

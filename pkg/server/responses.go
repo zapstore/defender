@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -53,13 +54,18 @@ func (s *T) CheckEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, response)
 
-	audit := sqlite.Audit{
-		Type:      sqlite.AuditEvent,
+	audit := models.Audit{
+		Type:      models.AuditEvent,
 		Hash:      event.ID,
 		Pubkey:    event.PubKey,
 		Decision:  response.Decision,
 		Reason:    response.Reason,
 		CheckedAt: time.Now().UTC(),
+	}
+
+	if err := audit.Validate(); err != nil {
+		slog.Error("CheckEvent: invalid audit", "audit", audit, "err", err)
+		return
 	}
 
 	// use a fresh context to record the decision, even if the client disconnects.
@@ -265,8 +271,8 @@ func (s *T) CheckBlob(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, response)
 
-	audit := sqlite.Audit{
-		Type:      sqlite.AuditBlob,
+	audit := models.Audit{
+		Type:      models.AuditBlob,
 		Hash:      blob.Hash.Hex(),
 		Pubkey:    blob.Pubkey,
 		Decision:  response.Decision,
@@ -274,8 +280,17 @@ func (s *T) CheckBlob(w http.ResponseWriter, r *http.Request) {
 		CheckedAt: time.Now().UTC(),
 	}
 
+	if err := audit.Validate(); err != nil {
+		slog.Error("CheckBlob: invalid audit", "audit", audit, "err", err)
+		return
+	}
+
+	// use a fresh context to record the decision, even if the client disconnects.
+	recordCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	// use a background context because we want to record the decision, even if the client doesn't need it anymore.
-	if err := s.db.Record(context.Background(), audit); err != nil {
+	if err := s.db.Record(recordCtx, audit); err != nil {
 		slog.Error("CheckBlob: failed to record check blob audit", "err", err)
 	}
 }
@@ -446,4 +461,27 @@ func (s *T) DeletePolicy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *T) ListAudits(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var limit int64 = 50
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		limit, err = strconv.ParseInt(l, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	audits, err := s.db.Audits(ctx, int(limit))
+	if err != nil {
+		slog.Error("ListAudits failed", "err", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, http.StatusOK, audits)
 }

@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", "localhost:8080", "listen address")
+	addr := flag.String("addr", "localhost:3338", "listen address")
 	flag.Parse()
 
 	if err := run(*addr); err != nil {

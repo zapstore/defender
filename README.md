@@ -48,21 +48,12 @@ The server listens on `localhost:8080` by default.
 
 ## Building
 
-Binaries are built using the Makefile. The build always targets a specific git tag. The script checks out that tag before compiling, so the binary is guaranteed to reflect a clean, tagged commit.
-
 ```bash
-make defender      # builds the server binary
-make defender-cli  # builds the CLI binary
-make all           # builds both
+make release
+make release REF=v1.2.3
 ```
 
-By default, the latest tag is resolved automatically via `git describe`. You can also target a specific tag explicitly:
-
-```bash
-make defender TAG=v1.2.3
-```
-
-Built binaries are placed in the `build/` directory and named after the tag, e.g. `build/defender-v1.2.3`. The git tag is also embedded into the binary at compile time and exposed via the `GET /v1/health` endpoint.
+The binary is `dist/defender-<ref>-<arch>`, or `dist/defender-dev-<arch>` when `REF` is empty. `REF` is embedded as the version reported by `GET /v1/health`. The CLI is `go build -o dist/defender-cli ./cmd/cli`.
 
 ## CLI
 

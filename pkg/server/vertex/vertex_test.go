@@ -19,26 +19,34 @@ const (
 // VERTEX_SECRET_KEY=<your_secret_key> go test
 var config = NewConfig()
 
-func init() {
+func requireVertex(t *testing.T) {
+	t.Helper()
 	config.SecretKey = os.Getenv("VERTEX_SECRET_KEY")
 	if config.SecretKey == "" {
-		panic("VERTEX_SECRET_KEY environment variable is not set")
+		t.Skip("VERTEX_SECRET_KEY is not set")
+	}
+}
+
+func TestAllowZeroThreshold(t *testing.T) {
+	client := NewClient(config)
+	client.config.Algorithm = Algorithm{Sort: SortGlobal, Threshold: 0.0}
+	allow, err := client.Allow(context.Background(), stranger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !allow {
+		t.Fatal("expected allow")
 	}
 }
 
 func TestAllow(t *testing.T) {
+	requireVertex(t)
 	tests := []struct {
 		name      string
 		pubkey    string
 		algorithm Algorithm
 		want      bool
 	}{
-		{
-			name:      "zero threshold always allows",
-			pubkey:    stranger,
-			algorithm: Algorithm{Sort: SortGlobal, Threshold: 0.0},
-			want:      true,
-		},
 		{
 			name:      "stranger below threshold",
 			pubkey:    stranger,
@@ -89,6 +97,7 @@ func TestAllow(t *testing.T) {
 }
 
 func TestCheckCredits(t *testing.T) {
+	requireVertex(t)
 	client := NewClient(config)
 	res, err := client.CheckCredits(context.Background())
 	if err != nil {
